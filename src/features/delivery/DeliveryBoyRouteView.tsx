@@ -450,7 +450,7 @@ export function DeliveryBoyRouteView() {
                         className="bg-rose-50 text-rose-700 hover:bg-rose-100 border-rose-200 font-bold flex items-center justify-center gap-1.5 min-h-[44px]"
                       >
                         <UserX className="w-4 h-4 text-rose-600" />
-                        <span>Mark Absent / Skip Today (कारण दर्ज करें)</span>
+                        <span>Mark Absent / Skip Today</span>
                       </Button>
                     )}
 

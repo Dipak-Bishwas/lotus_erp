@@ -35,7 +35,9 @@ import {
   TrendingUp,
   ShieldCheck,
   CheckCircle2,
-  UserX
+  UserX,
+  AlertCircle,
+  IndianRupee
 } from 'lucide-react';
 
 export function CustomerList({
@@ -157,7 +159,11 @@ export function CustomerList({
   });
 
   // Calculate metrics
+  const totalAssignedCustomers = filteredCustomers.length;
   const activeCount = filteredCustomers.filter((c) => c.status === 'ACTIVE').length;
+  const pendingPaymentCustomersCount = filteredCustomers.filter(
+    (c) => (c.current_outstanding || 0) > 0
+  ).length;
   const totalDailyValue = filteredCustomers
     .filter((c) => c.status === 'ACTIVE')
     .reduce((sum, c) => sum + c.current_rate, 0);
@@ -165,6 +171,19 @@ export function CustomerList({
     (sum, c) => sum + (c.current_outstanding || 0),
     0
   );
+
+  // Delivery Boy's assigned area name
+  const assignedAreaName = (() => {
+    if (currentUser.assigned_area_ids && currentUser.assigned_area_ids.length > 0) {
+      const matched = areas.find((a) => currentUser.assigned_area_ids?.includes(a.area_id));
+      if (matched) return matched.area_name.split('-')[0].trim();
+    }
+    if (filteredCustomers.length > 0 && filteredCustomers[0].area_id) {
+      const matched = areas.find((a) => a.area_id === filteredCustomers[0].area_id);
+      if (matched) return matched.area_name.split('-')[0].trim();
+    }
+    return areas[0]?.area_name.split('-')[0].trim() || 'Assigned Area';
+  })();
 
   return (
     <div className="space-y-5">
@@ -241,23 +260,35 @@ export function CustomerList({
               Auto-Present Active (Default Delivered):
             </strong>
             <span className="text-emerald-800">
-              Aapke sabhi {filteredCustomers.length} assigned customers ko aaj automatically <strong>Delivered (Present)</strong> mark kar diya gaya hai. 
-              Aapko roz application kholne ki zaroorat nahi hai. Agar kisi ghar me delivery chhoot gayi ya customer ne mana kiya, sirf us customer ke card par <strong>"Absent (कारण दर्ज करें)"</strong> dabayein.
+              All your {filteredCustomers.length} assigned customers are automatically marked <strong>Delivered (Present)</strong> for today. 
+              You don't need to open the app every day. Only open and click <strong>"Mark Absent"</strong> if a customer cancelled or was missed.
             </span>
           </div>
         </div>
       )}
 
       {/* Top Metric Summary Ribbon */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className={`grid gap-3 ${isAdmin ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'}`}>
+        {/* Card 1: Total Assigned Customers */}
         <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-              Active Clients
+              {isAdmin ? 'Active / Total Clients' : 'Total Assigned Clients'}
             </span>
             <div className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5">
-              {activeCount}
-              <span className="text-xs font-normal text-slate-400 ml-1">/ {filteredCustomers.length}</span>
+              {isAdmin ? (
+                <>
+                  {activeCount}
+                  <span className="text-xs font-normal text-slate-400 ml-1">/ {totalAssignedCustomers}</span>
+                </>
+              ) : (
+                <>
+                  {totalAssignedCustomers}
+                  <span className="text-xs font-bold text-emerald-600 ml-1.5 text-[11px]">
+                    ({activeCount} Active)
+                  </span>
+                </>
+              )}
             </div>
           </div>
           <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -265,35 +296,59 @@ export function CustomerList({
           </div>
         </div>
 
-        <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-              Daily Subscription Value
-            </span>
-            <div className="text-xl sm:text-2xl font-black text-emerald-600 font-mono mt-0.5">
-              {formatCurrency(totalDailyValue)}
-              <span className="text-[10px] font-normal text-slate-400 ml-1">/ day</span>
+        {/* Card 2: Pending Payment Customers (for Delivery Boy) or Daily Subscription Value (for Admin) */}
+        {!isAdmin ? (
+          <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                Pending Payment Clients
+              </span>
+              <div className="text-xl sm:text-2xl font-black text-amber-600 mt-0.5 flex items-baseline gap-1.5">
+                <span>{pendingPaymentCustomersCount}</span>
+                <span className="text-xs font-normal text-slate-400">
+                  {pendingPaymentCustomersCount === 1 ? 'customer' : 'customers'}
+                </span>
+              </div>
+            </div>
+            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <AlertCircle className="w-5 h-5" />
             </div>
           </div>
-          <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <Flower2 className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-              Monthly Forecast
-            </span>
-            <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono mt-0.5">
-              {formatCurrency(totalDailyValue * 30)}
+        ) : (
+          <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                Daily Subscription Value
+              </span>
+              <div className="text-xl sm:text-2xl font-black text-emerald-600 font-mono mt-0.5">
+                {formatCurrency(totalDailyValue)}
+                <span className="text-[10px] font-normal text-slate-400 ml-1">/ day</span>
+              </div>
+            </div>
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <Flower2 className="w-5 h-5" />
             </div>
           </div>
-          <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-            <TrendingUp className="w-5 h-5" />
-          </div>
-        </div>
+        )}
 
+        {/* Admin only: Monthly Forecast */}
+        {isAdmin && (
+          <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                Monthly Forecast
+              </span>
+              <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono mt-0.5">
+                {formatCurrency(totalDailyValue * 30)}
+              </div>
+            </div>
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <TrendingUp className="w-5 h-5" />
+            </div>
+          </div>
+        )}
+
+        {/* Card: Assigned Area (for Delivery Boy) or Total Outstanding (for Admin) */}
         <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
@@ -304,13 +359,13 @@ export function CustomerList({
                 {formatCurrency(totalOutstanding)}
               </div>
             ) : (
-              <div className="text-sm font-bold text-blue-700 truncate max-w-[130px] mt-0.5">
-                {areas[0]?.area_name.split('-')[0] || 'My Area'}
+              <div className="text-base sm:text-lg font-black text-blue-700 truncate max-w-[140px] mt-0.5" title={assignedAreaName}>
+                {assignedAreaName}
               </div>
             )}
           </div>
-          <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
-            <ShieldCheck className="w-5 h-5" />
+          <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+            {isAdmin ? <ShieldCheck className="w-5 h-5 text-rose-600" /> : <MapPin className="w-5 h-5 text-blue-600" />}
           </div>
         </div>
       </div>
@@ -338,19 +393,6 @@ export function CustomerList({
           </div>
 
           <div className="flex items-center gap-2">
-            <Select
-              value={selectedArea}
-              onChange={(e) => setSelectedArea(e.target.value)}
-              className="text-xs min-w-[160px]"
-            >
-              <option value="ALL">All Delivery Areas</option>
-              {areas.map((a) => (
-                <option key={a.area_id} value={a.area_id}>
-                  {a.area_name}
-                </option>
-              ))}
-            </Select>
-
             <Select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
@@ -539,7 +581,7 @@ export function CustomerList({
                           className="text-xs bg-rose-50 text-rose-700 hover:bg-rose-100 border-rose-200 h-8 font-bold"
                         >
                           <UserX className="w-3.5 h-3.5 mr-1" />
-                          <span>Absent (कारण दर्ज करें)</span>
+                          <span>Mark Absent</span>
                         </Button>
                       )}
                     </>

@@ -89,7 +89,7 @@ export function LoginView() {
         <div className="bg-white text-slate-900 rounded-3xl p-6 sm:p-8 shadow-2xl border border-white/20 space-y-5">
           <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-black text-slate-900">Sign In (लॉग इन)</h2>
+              <h2 className="text-lg font-black text-slate-900">Sign In</h2>
               <p className="text-xs text-slate-500">Delivery Boy & Admin Portal</p>
             </div>
             <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full border border-blue-200">
@@ -159,7 +159,7 @@ export function LoginView() {
           {/* Quick Demo 1-Click Login Section */}
           <div className="pt-3 border-t border-slate-100 space-y-2.5">
             <p className="text-[11px] font-black uppercase tracking-wider text-slate-400 text-center">
-              Quick 1-Click Login (डेमो लॉगिन)
+              Quick 1-Click Login
             </p>
             <div className="space-y-1.5">
               {deliveryBoys.map((boy) => (

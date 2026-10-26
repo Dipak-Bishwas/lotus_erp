@@ -183,7 +183,7 @@ export function Sidebar({
 
             <button
               onClick={logout}
-              title="Log Out (लॉग आउट)"
+              title="Log Out"
               className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-white transition-colors"
             >
               <LogOut className="w-4 h-4" />

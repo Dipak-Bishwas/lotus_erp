@@ -27,31 +27,31 @@ const COMMON_REASONS = [
   {
     id: 'REFUSED',
     label: 'Customer Refused / Said Not Needed Today',
-    sublabel: 'ग्राहक ने आज मना किया',
+    sublabel: 'Customer specifically asked not to deliver today',
     badge: 'Customer Request'
   },
   {
     id: 'DOOR_LOCKED',
     label: 'Door Locked / House Closed',
-    sublabel: 'घर बंद था / कोई नहीं था',
+    sublabel: 'No one was available at home or gate was locked',
     badge: 'No Access'
   },
   {
     id: 'MISSED',
     label: 'Delivery Missed / Forgot by Delivery Boy',
-    sublabel: 'छूट गया / भूल गए',
+    sublabel: 'Driver missed or forgot to drop the flower packet',
     badge: 'Driver Missed'
   },
   {
     id: 'FLOWERS_FINISHED',
     label: 'Flowers Out of Stock / Damaged',
-    sublabel: 'फूल खत्म हो गए या खराब थे',
+    sublabel: 'Ran out of fresh flowers or batch was damaged',
     badge: 'Inventory'
   },
   {
     id: 'OTHER',
     label: 'Other Reason (Specify below)',
-    sublabel: 'अन्य कारण',
+    sublabel: 'Custom situation or special instructions',
     badge: 'Custom'
   }
 ];
@@ -152,7 +152,7 @@ export function MarkAbsentModal({
         {/* Reason Selector */}
         <div className="space-y-2">
           <label className="block text-xs font-black text-slate-800 uppercase tracking-wider">
-            Select Reason (कारण चुनें) <span className="text-rose-500">*</span>
+            Select Reason <span className="text-rose-500">*</span>
           </label>
           <div className="space-y-2">
             {COMMON_REASONS.map((r) => {

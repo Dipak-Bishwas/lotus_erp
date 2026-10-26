@@ -121,7 +121,7 @@ export function Topbar({
           {/* Logout Button */}
           <button
             onClick={logout}
-            title="Log Out (लॉग आउट)"
+            title="Log Out"
             className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors tap-highlight border border-rose-100 shadow-2xs flex items-center gap-1 text-xs font-bold"
           >
             <LogOut className="w-4 h-4" />

@@ -6,6 +6,7 @@ import { CustomerStatusBadge } from '@/components/ui/Badge';
 import { MoneyDisplay, DateDisplay } from '@/components/data-display/MoneyDisplay';
 import { formatCurrency, formatPhone } from '@/lib/formatters';
 import { StorageService } from '@/lib/storage';
+import { useAuth } from '@/features/auth/AuthContext';
 import {
   Phone,
   MapPin,
@@ -36,6 +37,7 @@ export function CustomerDetailModal({
   onRecordAbsence: (c: Customer) => void;
   onViewLedger: (c: Customer) => void;
 }) {
+  const { isAdmin } = useAuth();
   if (!customer) return null;
 
   const area = StorageService.getAreas().find((a) => a.area_id === customer.area_id);
@@ -53,40 +55,50 @@ export function CustomerDetailModal({
       maxWidth="lg"
       footer={
         <div className="flex flex-wrap items-center justify-between w-full gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              onClose();
-              onViewLedger(customer);
-            }}
-          >
-            <BookOpen className="w-4 h-4 mr-1.5" />
-            <span>View Ledger</span>
-          </Button>
+          {isAdmin ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                onClose();
+                onViewLedger(customer);
+              }}
+            >
+              <BookOpen className="w-4 h-4 mr-1.5" />
+              <span>View Ledger</span>
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" onClick={onClose}>
+              Close
+            </Button>
+          )}
 
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                onClose();
-                onEdit(customer);
-              }}
-            >
-              Edit Profile
-            </Button>
-            <Button
-              size="sm"
-              variant="primary"
-              onClick={() => {
-                onClose();
-                onRecordPayment(customer);
-              }}
-            >
-              <CreditCard className="w-4 h-4 mr-1.5" />
-              <span>Collect Payment</span>
-            </Button>
+            {isAdmin && (
+              <>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    onClose();
+                    onEdit(customer);
+                  }}
+                >
+                  Edit Profile
+                </Button>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => {
+                    onClose();
+                    onRecordPayment(customer);
+                  }}
+                >
+                  <CreditCard className="w-4 h-4 mr-1.5" />
+                  <span>Collect Payment</span>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       }
