@@ -8,6 +8,8 @@ export interface User {
   status: 'ACTIVE' | 'INACTIVE';
   assigned_area_ids?: string[];
   avatar_url?: string;
+  password?: string;
+  joining_date?: string;
 }
 
 export interface DeliveryArea {

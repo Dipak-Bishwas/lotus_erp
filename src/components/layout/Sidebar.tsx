@@ -83,7 +83,7 @@ export function Sidebar({
           badge: pendingCount > 0 ? `${pendingCount} Pending` : 'All Done',
           badgeColor: pendingCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
         },
-        { id: 'customers' as NavTab, label: 'Customers & Rates', icon: Users, count: `${customersCount}` },
+        { id: 'customers' as NavTab, label: 'Customer Management', icon: Users, count: `${customersCount}` },
         { id: 'absences' as NavTab, label: 'Absence & Leave', icon: CalendarOff },
       ],
     },
@@ -98,7 +98,7 @@ export function Sidebar({
     {
       title: 'ADMIN & COMPLIANCE',
       items: [
-        { id: 'staff' as NavTab, label: 'Delivery Staff & Areas', icon: MapPin },
+        { id: 'staff' as NavTab, label: 'Delivery Staff', icon: MapPin },
         { id: 'reports' as NavTab, label: 'Reports & Export', icon: BarChart3 },
         { id: 'audit' as NavTab, label: 'Audit Trail', icon: History },
       ],
@@ -147,8 +147,8 @@ export function Sidebar({
       {/* Sidebar container */}
       <aside
         className={cn(
-          'fixed top-0 bottom-0 left-0 z-40 w-72 bg-white border-r border-slate-200/80 flex flex-col transition-transform duration-200 ease-in-out',
-          'lg:translate-x-0 lg:static lg:z-0 lg:h-[calc(100vh-61px)]',
+          'fixed top-0 bottom-0 left-0 z-40 w-72 bg-white border-r border-slate-200/80 flex flex-col transition-transform duration-200 ease-in-out shrink-0',
+          'lg:translate-x-0 lg:static lg:z-0 lg:h-full',
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -218,7 +218,7 @@ export function Sidebar({
         </div>
 
         {/* Navigation list */}
-        <div className="flex-1 px-3 py-1 space-y-4 overflow-y-auto">
+        <div className="flex-1 px-3 py-1 space-y-4 overflow-y-auto overscroll-contain">
           {sections.map((section, idx) => (
             <div key={idx} className="space-y-1">
               <p className="px-3 text-[10px] font-extrabold text-slate-400 tracking-wider uppercase">

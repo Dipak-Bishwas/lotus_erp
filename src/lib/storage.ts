@@ -91,15 +91,39 @@ export const StorageService = {
     return this.getUsers().filter(u => u.role === 'DELIVERY_BOY');
   },
 
-  saveUser(user: User): void {
+  saveUser(user: User, actor?: User): void {
     const users = this.getUsers();
     const index = users.findIndex(u => u.user_id === user.user_id);
-    if (index >= 0) {
-      users[index] = user;
-    } else {
+    const isNew = index < 0;
+    if (isNew) {
       users.push(user);
+    } else {
+      users[index] = user;
     }
     setStoredItem(STORAGE_KEYS.USERS, users);
+
+    // If an area is assigned to this user, update that area's assigned_delivery_boy_id
+    if (user.assigned_area_ids && user.assigned_area_ids.length > 0) {
+      const areas = this.getAreas();
+      user.assigned_area_ids.forEach(areaId => {
+        const aIdx = areas.findIndex(a => a.area_id === areaId);
+        if (aIdx >= 0) {
+          areas[aIdx].assigned_delivery_boy_id = user.user_id;
+        }
+      });
+      setStoredItem(STORAGE_KEYS.AREAS, areas);
+    }
+
+    if (actor) {
+      this.logAudit({
+        user_id: actor.user_id,
+        user_name: actor.name,
+        action: isNew ? 'CREATE_DELIVERY_STAFF' : 'UPDATE_DELIVERY_STAFF',
+        entity_type: 'CUSTOMER',
+        entity_id: user.user_id,
+        change_summary: `${isNew ? 'Created' : 'Updated'} delivery staff ${user.name} (ID: ${user.user_id}, Area: ${user.assigned_area_ids?.join(', ') || 'None'})`,
+      });
+    }
   },
 
   // Areas

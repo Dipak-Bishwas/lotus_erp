@@ -133,7 +133,7 @@ export function CustomerList({
             <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
               {currentUser.role === 'DELIVERY_BOY'
                 ? 'My Assigned Delivery Customers'
-                : 'Customer Directory & Daily Rates'}
+                : 'Customer Management'}
             </h2>
             <span className="text-xs font-extrabold bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full border border-blue-200">
               {filteredCustomers.length} Listed
@@ -142,7 +142,7 @@ export function CustomerList({
           <p className="text-xs text-slate-500 mt-1">
             {currentUser.role === 'DELIVERY_BOY'
               ? 'Customer delivery points, door instructions, and direct telephone access'
-              : 'Manage daily flower subscriptions, effective-dated prices, and delivery allocations'}
+              : 'Manage customer accounts, daily flower subscriptions, rates, and delivery allocations'}
           </p>
         </div>
 
