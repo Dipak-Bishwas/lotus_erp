@@ -66,6 +66,7 @@ export interface DailyDelivery {
   updated_by: string; // user_id
   updated_at: string;
   notes?: string;
+  absent_reason?: string;
 }
 
 export type AbsenceStatus = 'APPROVED' | 'PENDING' | 'CANCELLED';

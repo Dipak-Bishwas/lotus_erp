@@ -87,24 +87,37 @@ export const BillingEngine = {
       }
 
       // Check delivery record for this day
+      const todayStr = new Date().toISOString().split('T')[0];
       const delivery = customerDeliveries.find(d => d.delivery_date === dateStr);
       if (!delivery) {
-        // If no record exists for a past/current date, it's considered unrecorded/pending
-        pendingDays++;
+        // Auto-present model: Active customer subscription days up to today are delivered by default
+        if (dateStr <= todayStr) {
+          billableDays++;
+          eligibleDeliveryDates.push(dateStr);
+          currentCharges += customer.current_rate;
+        } else {
+          pendingDays++;
+        }
       } else {
         if (delivery.status === 'DELIVERED') {
           billableDays++;
           eligibleDeliveryDates.push(dateStr);
-          // Rate effective on delivery date
           const billAmount = delivery.billable_amount > 0 ? delivery.billable_amount : customer.current_rate;
           currentCharges += billAmount;
         } else if (delivery.status === 'VACATION' || delivery.status === 'CUSTOMER_ABSENT') {
+          // Explicitly marked absent by Delivery Boy / Admin or on vacation -> ₹0
           absenceDays++;
           absenceDates.push(dateStr);
         } else if (delivery.status === 'NOT_DELIVERED') {
           notDeliveredDays++;
         } else if (delivery.status === 'PENDING') {
-          pendingDays++;
+          if (dateStr <= todayStr) {
+            billableDays++;
+            eligibleDeliveryDates.push(dateStr);
+            currentCharges += customer.current_rate;
+          } else {
+            pendingDays++;
+          }
         }
       }
     }

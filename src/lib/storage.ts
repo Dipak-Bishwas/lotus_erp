@@ -248,11 +248,11 @@ export const StorageService = {
           customer_id: cust.customer_id,
           delivery_date: targetDate,
           delivery_boy_id: cust.assigned_delivery_boy_id,
-          status: isAbsent ? 'VACATION' : 'PENDING',
-          billable_amount: 0,
+          status: isAbsent ? 'VACATION' : 'DELIVERED',
+          billable_amount: isAbsent ? 0 : cust.current_rate,
           updated_by: 'SYSTEM',
           updated_at: new Date().toISOString(),
-          notes: isAbsent ? 'Customer on planned vacation/leave' : '',
+          notes: isAbsent ? 'Customer on planned vacation/leave' : 'Auto-present (Delivered by default)',
         });
         added = true;
       }
@@ -275,7 +275,8 @@ export const StorageService = {
     deliveryId: string, 
     status: DeliveryStatus, 
     user: User, 
-    notes?: string
+    notes?: string,
+    absentReason?: string
   ): void {
     const deliveries = getStoredItem<DailyDelivery[]>(STORAGE_KEYS.DELIVERIES, INITIAL_DELIVERIES);
     const idx = deliveries.findIndex(d => d.delivery_id === deliveryId);
@@ -291,6 +292,7 @@ export const StorageService = {
         status,
         billable_amount: billable,
         notes: notes !== undefined ? notes : item.notes,
+        absent_reason: absentReason !== undefined ? absentReason : (status === 'DELIVERED' ? undefined : item.absent_reason),
         updated_by: user.user_id,
         updated_at: new Date().toISOString(),
       };
@@ -302,9 +304,57 @@ export const StorageService = {
         action: 'UPDATE_DELIVERY_STATUS',
         entity_type: 'DELIVERY',
         entity_id: deliveryId,
-        change_summary: `Marked delivery for ${customer?.name || item.customer_id} as ${status} (Billable: ₹${billable})`,
+        change_summary: `Marked delivery for ${customer?.name || item.customer_id} as ${status}${absentReason ? ` (Reason: ${absentReason})` : ''} (Billable: ₹${billable})`,
       });
     }
+  },
+
+  recordCustomerDailyAbsence(
+    customerId: string,
+    date: string,
+    reason: string,
+    notes: string | undefined,
+    user: User
+  ): void {
+    const deliveries = getStoredItem<DailyDelivery[]>(STORAGE_KEYS.DELIVERIES, INITIAL_DELIVERIES);
+    const customer = this.getCustomer(customerId);
+    const existingIdx = deliveries.findIndex(d => d.customer_id === customerId && d.delivery_date === date);
+
+    if (existingIdx >= 0) {
+      deliveries[existingIdx] = {
+        ...deliveries[existingIdx],
+        status: 'CUSTOMER_ABSENT',
+        billable_amount: 0,
+        absent_reason: reason,
+        notes: notes ? `${reason} - ${notes}` : reason,
+        updated_by: user.user_id,
+        updated_at: new Date().toISOString(),
+      };
+    } else {
+      deliveries.push({
+        delivery_id: generateId('DEL'),
+        customer_id: customerId,
+        delivery_date: date,
+        delivery_boy_id: customer?.assigned_delivery_boy_id || '',
+        status: 'CUSTOMER_ABSENT',
+        billable_amount: 0,
+        absent_reason: reason,
+        notes: notes ? `${reason} - ${notes}` : reason,
+        updated_by: user.user_id,
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    setStoredItem(STORAGE_KEYS.DELIVERIES, deliveries);
+
+    this.logAudit({
+      user_id: user.user_id,
+      user_name: user.name,
+      action: 'UPDATE_DELIVERY_STATUS',
+      entity_type: 'DELIVERY',
+      entity_id: customerId,
+      change_summary: `Recorded 1-day absence for ${customer?.name || customerId} on ${date}. Reason: ${reason} (₹0 billable)`,
+    });
   },
 
   // Absences

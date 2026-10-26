@@ -20,8 +20,11 @@ import {
   RotateCcw,
   CheckCheck,
   FileEdit,
-  ArrowUpDown
+  ArrowUpDown,
+  Sparkles,
+  UserX
 } from 'lucide-react';
+import { MarkAbsentModal } from './MarkAbsentModal';
 
 export function DailyDeliveryView() {
   const { currentUser, isAdmin } = useAuth();
@@ -36,6 +39,11 @@ export function DailyDeliveryView() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [areas, setAreas] = useState<DeliveryArea[]>([]);
   const [deliveryBoys, setDeliveryBoys] = useState<User[]>([]);
+
+  // Mark Absent Modal State
+  const [absentModalOpen, setAbsentModalOpen] = useState(false);
+  const [targetCustomer, setTargetCustomer] = useState<Customer | null>(null);
+  const [targetDelivery, setTargetDelivery] = useState<DailyDelivery | null>(null);
 
   // Edit dialog
   const [editDelivery, setEditDelivery] = useState<DailyDelivery | null>(null);
@@ -99,6 +107,30 @@ export function DailyDeliveryView() {
     loadData();
   };
 
+  const handleOpenAbsentModal = (del: DailyDelivery) => {
+    const cust = getCustomer(del.customer_id);
+    if (cust) {
+      setTargetDelivery(del);
+      setTargetCustomer(cust);
+      setAbsentModalOpen(true);
+    }
+  };
+
+  const handleConfirmAbsent = (reason: string, notes?: string) => {
+    if (targetDelivery) {
+      StorageService.updateDeliveryStatus(
+        targetDelivery.delivery_id,
+        'CUSTOMER_ABSENT',
+        currentUser,
+        notes,
+        reason
+      );
+      showToast('Marked Absent', `Recorded absence: ${reason}`, 'info');
+      setAbsentModalOpen(false);
+      loadData();
+    }
+  };
+
   // Bulk action: Mark all remaining pending as Delivered
   const handleBulkMarkDelivered = () => {
     const pendingItems = deliveries.filter((d) => d.status === 'PENDING');
@@ -160,6 +192,19 @@ export function DailyDeliveryView() {
               </Button>
             )}
           </div>
+        </div>
+
+        {/* Auto-present notice */}
+        <div className="p-2.5 bg-blue-50/70 border border-blue-200/80 rounded-xl text-xs text-blue-900 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
+            <span>
+              <strong>Auto-Delivered System:</strong> All active customer drop-offs are automatically marked <strong>Delivered (Present)</strong> by default. Staff only record <strong>Absent with Reason</strong> when a delivery is missed or skipped (₹0 bill).
+            </span>
+          </div>
+          <span className="hidden sm:inline-block text-[10px] font-bold uppercase tracking-wider bg-white px-2 py-0.5 rounded text-blue-700 border border-blue-200 shrink-0">
+            Default Present
+          </span>
         </div>
 
         {/* Filter selects */}
@@ -294,14 +339,14 @@ export function DailyDeliveryView() {
                         ✓ Done
                       </button>
                       <button
-                        onClick={() => handleQuickStatus(del, 'CUSTOMER_ABSENT')}
+                        onClick={() => handleOpenAbsentModal(del)}
                         className={`text-xs px-2.5 py-1.5 rounded-lg font-bold tap-highlight ${
                           del.status === 'CUSTOMER_ABSENT'
-                            ? 'bg-slate-700 text-white'
-                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            ? 'bg-rose-700 text-white'
+                            : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
                         }`}
                       >
-                        Absent
+                        Absent (₹0)
                       </button>
                     </div>
 
@@ -354,7 +399,15 @@ export function DailyDeliveryView() {
                       </td>
                       <td className="py-3 px-4">
                         <DeliveryStatusBadge status={del.status} />
-                        {del.notes && (
+                        {del.absent_reason && (
+                          <span
+                            className="block text-[10px] text-rose-600 font-bold truncate max-w-[160px]"
+                            title={del.absent_reason}
+                          >
+                            Reason: {del.absent_reason}
+                          </span>
+                        )}
+                        {del.notes && !del.absent_reason && (
                           <span
                             className="block text-[10px] text-slate-400 italic truncate max-w-[150px]"
                             title={del.notes}
@@ -373,11 +426,15 @@ export function DailyDeliveryView() {
                             ✓
                           </button>
                           <button
-                            onClick={() => handleQuickStatus(del, 'CUSTOMER_ABSENT')}
-                            className="px-2 py-1 text-[11px] font-bold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
-                            title="Mark Customer Absent"
+                            onClick={() => handleOpenAbsentModal(del)}
+                            className={`px-2 py-1 text-[11px] font-bold rounded-lg border ${
+                              del.status === 'CUSTOMER_ABSENT'
+                                ? 'bg-rose-600 text-white border-rose-600'
+                                : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
+                            }`}
+                            title="Mark Customer Absent with Reason"
                           >
-                            Absent
+                            Absent (₹0)
                           </button>
                           <Button
                             size="sm"
@@ -445,6 +502,16 @@ export function DailyDeliveryView() {
           </div>
         )}
       </Dialog>
+
+      {/* Reusable Mark Absent Modal */}
+      <MarkAbsentModal
+        isOpen={absentModalOpen}
+        onClose={() => setAbsentModalOpen(false)}
+        customer={targetCustomer}
+        delivery={targetDelivery}
+        date={selectedDate}
+        onConfirmAbsent={handleConfirmAbsent}
+      />
     </div>
   );
 }

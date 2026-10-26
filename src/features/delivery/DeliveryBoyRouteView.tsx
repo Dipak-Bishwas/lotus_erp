@@ -8,6 +8,7 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
 import { formatCurrency, formatPhone, getTodayDateString } from '@/lib/formatters';
 import { DailyDelivery, Customer, DeliveryStatus } from '@/types';
+import { MarkAbsentModal } from './MarkAbsentModal';
 import {
   CheckCircle2,
   XCircle,
@@ -23,7 +24,10 @@ import {
   RotateCcw,
   Sun,
   ShieldCheck,
-  Send
+  Search,
+  CheckCheck,
+  CalendarOff,
+  UserX
 } from 'lucide-react';
 
 export function DeliveryBoyRouteView() {
@@ -33,8 +37,17 @@ export function DeliveryBoyRouteView() {
 
   const [deliveries, setDeliveries] = useState<DailyDelivery[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'DONE'>('ALL');
-  
+  const [filter, setFilter] = useState<'ALL' | 'DELIVERED' | 'ABSENT'>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Mark Absent Modal State
+  const [absentModalOpen, setAbsentModalOpen] = useState(false);
+  const [targetCustomer, setTargetCustomer] = useState<Customer | null>(null);
+  const [targetDelivery, setTargetDelivery] = useState<DailyDelivery | null>(null);
+
+  // Quick top absent picker
+  const [quickAbsentCustomerId, setQuickAbsentCustomerId] = useState('');
+
   // Note dialog
   const [noteDialogOpen, setNoteDialogOpen] = useState(false);
   const [selectedDelivery, setSelectedDelivery] = useState<DailyDelivery | null>(null);
@@ -45,10 +58,14 @@ export function DeliveryBoyRouteView() {
   }, [currentUser]);
 
   const loadRouteData = () => {
-    const custs = StorageService.getCustomers();
     // Delivery boys only see their assigned customers (BRD BR-07)
+    const allCustomers = StorageService.getCustomers();
+    const assignedCustomers = allCustomers.filter(c => 
+      currentUser.role === 'DELIVERY_BOY' ? c.assigned_delivery_boy_id === currentUser.user_id : true
+    );
     const dels = StorageService.getDeliveries(todayStr, currentUser.role === 'DELIVERY_BOY' ? currentUser.user_id : undefined);
-    setCustomers(custs);
+
+    setCustomers(assignedCustomers);
     setDeliveries(dels);
   };
 
@@ -56,14 +73,49 @@ export function DeliveryBoyRouteView() {
     return customers.find(c => c.customer_id === customerId);
   };
 
-  const handleUpdateStatus = (delivery: DailyDelivery, status: DeliveryStatus, notes?: string) => {
-    StorageService.updateDeliveryStatus(delivery.delivery_id, status, currentUser, notes);
+  const handleUpdateStatus = (delivery: DailyDelivery, status: DeliveryStatus, notes?: string, absentReason?: string) => {
+    StorageService.updateDeliveryStatus(delivery.delivery_id, status, currentUser, notes, absentReason);
+    const customer = getCustomer(delivery.customer_id);
     showToast(
-      status === 'DELIVERED' ? 'Marked Delivered' : `Marked as ${status.replace('_', ' ')}`,
-      `${getCustomer(delivery.customer_id)?.name || 'Customer'} status recorded`,
+      status === 'DELIVERED' ? 'Marked Delivered (Present)' : 'Marked Absent / Skipped',
+      `${customer?.name || 'Customer'} marked as ${status === 'DELIVERED' ? 'Present' : 'Absent (₹0)'}`,
       status === 'DELIVERED' ? 'success' : 'info'
     );
     loadRouteData();
+  };
+
+  const handleOpenAbsentModal = (delivery: DailyDelivery, customer: Customer) => {
+    setTargetDelivery(delivery);
+    setTargetCustomer(customer);
+    setAbsentModalOpen(true);
+  };
+
+  const handleConfirmAbsent = (reason: string, notes?: string) => {
+    if (targetDelivery) {
+      handleUpdateStatus(targetDelivery, 'CUSTOMER_ABSENT', notes, reason);
+    } else if (targetCustomer) {
+      StorageService.recordCustomerDailyAbsence(
+        targetCustomer.customer_id,
+        todayStr,
+        reason,
+        notes,
+        currentUser
+      );
+      showToast('Absent Recorded', `${targetCustomer.name} marked absent for today`, 'info');
+      loadRouteData();
+    }
+  };
+
+  const handleQuickAbsentFromDropdown = (customerId: string) => {
+    if (!customerId) return;
+    const cust = getCustomer(customerId);
+    const del = deliveries.find(d => d.customer_id === customerId);
+    if (cust) {
+      setTargetCustomer(cust);
+      setTargetDelivery(del || null);
+      setAbsentModalOpen(true);
+      setQuickAbsentCustomerId('');
+    }
   };
 
   const openNoteDialog = (delivery: DailyDelivery) => {
@@ -88,15 +140,28 @@ export function DeliveryBoyRouteView() {
 
   // Metrics
   const totalStops = deliveries.length;
-  const completedStops = deliveries.filter(d => d.status === 'DELIVERED').length;
-  const pendingStops = deliveries.filter(d => d.status === 'PENDING').length;
-  const onLeaveStops = deliveries.filter(d => d.status === 'VACATION').length;
-  const progressPercent = totalStops > 0 ? Math.round((completedStops / totalStops) * 100) : 0;
+  const deliveredStops = deliveries.filter(d => d.status === 'DELIVERED').length;
+  const absentStops = deliveries.filter(d => d.status === 'CUSTOMER_ABSENT' || d.status === 'NOT_DELIVERED').length;
+  const vacationStops = deliveries.filter(d => d.status === 'VACATION').length;
 
   // Filtered deliveries
   const displayedDeliveries = deliveries.filter(d => {
-    if (filter === 'PENDING') return d.status === 'PENDING';
-    if (filter === 'DONE') return d.status !== 'PENDING';
+    const cust = getCustomer(d.customer_id);
+    if (!cust) return false;
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchName = cust.name.toLowerCase().includes(q);
+      const matchAddr = cust.address.toLowerCase().includes(q);
+      const matchPhone = cust.phone.includes(q);
+      const matchId = cust.customer_id.toLowerCase().includes(q);
+      if (!matchName && !matchAddr && !matchPhone && !matchId) return false;
+    }
+
+    // Filter tab
+    if (filter === 'DELIVERED') return d.status === 'DELIVERED';
+    if (filter === 'ABSENT') return d.status === 'CUSTOMER_ABSENT' || d.status === 'NOT_DELIVERED' || d.status === 'VACATION';
     return true;
   });
 
@@ -117,8 +182,9 @@ export function DeliveryBoyRouteView() {
               <span className="text-xs text-blue-200 font-medium">{todayStr}</span>
             </div>
 
-            <span className="text-xs font-bold text-emerald-300 bg-emerald-950/40 border border-emerald-400/30 px-2.5 py-0.5 rounded-full">
-              🟢 Route Active
+            <span className="text-xs font-bold text-emerald-300 bg-emerald-950/40 border border-emerald-400/30 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              Auto-Present Enabled
             </span>
           </div>
 
@@ -128,83 +194,113 @@ export function DeliveryBoyRouteView() {
                 {currentUser.name}
               </h2>
               <p className="text-xs text-blue-100 mt-0.5">
-                {totalStops} Daily Flower Drop-offs Scheduled for Today
+                {totalStops} Assigned Customer Drop-offs for Today
               </p>
             </div>
 
             <div className="text-left sm:text-right">
               <div className="text-2xl sm:text-3xl font-black font-mono">
-                {completedStops}
+                {deliveredStops}
                 <span className="text-lg font-normal text-blue-200">/{totalStops}</span>
               </div>
               <p className="text-[11px] text-blue-200 font-bold uppercase tracking-wider">
-                Stops Finished
+                Delivered (Present)
               </p>
             </div>
           </div>
 
-          {/* Route Progress Bar */}
-          <div className="space-y-1.5 mt-4 pt-4 border-t border-white/10">
-            <div className="w-full bg-blue-950/50 h-3 rounded-full overflow-hidden p-0.5 backdrop-blur-sm border border-white/10">
-              <div
-                className="bg-gradient-to-r from-emerald-400 to-teal-300 h-full rounded-full transition-all duration-500 shadow-sm"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-            <div className="flex justify-between text-xs text-blue-100 font-bold">
-              <span>{progressPercent}% Route Complete</span>
+          {/* Business Model Clarification Notice */}
+          <div className="mt-4 p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/15 text-xs text-blue-100 flex items-start gap-2.5">
+            <Sparkles className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <strong className="text-white font-extrabold block">
+                Automatic Delivery Attendance (Default Present):
+              </strong>
               <span>
-                {pendingStops} Stops Left • {onLeaveStops} on Vacation
+                All {totalStops} houses are automatically counted as <strong>Delivered</strong>. 
+                You only need to open this app if a customer refused or delivery was missed to record an <strong>Absent with Reason</strong> (₹0 bill).
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Touch Filter Pills */}
-      <div className="flex items-center p-1.5 bg-slate-200/80 backdrop-blur-sm rounded-2xl gap-1">
-        <button
-          onClick={() => setFilter('ALL')}
-          className={`flex-1 py-2.5 text-xs font-extrabold rounded-xl transition-all tap-highlight ${
-            filter === 'ALL'
-              ? 'bg-white text-slate-900 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          All Stops ({totalStops})
-        </button>
-        <button
-          onClick={() => setFilter('PENDING')}
-          className={`flex-1 py-2.5 text-xs font-extrabold rounded-xl transition-all tap-highlight ${
-            filter === 'PENDING'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          To Deliver ({pendingStops})
-        </button>
-        <button
-          onClick={() => setFilter('DONE')}
-          className={`flex-1 py-2.5 text-xs font-extrabold rounded-xl transition-all tap-highlight ${
-            filter === 'DONE'
-              ? 'bg-white text-emerald-600 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          Completed ({totalStops - pendingStops})
-        </button>
+      {/* Quick Search & Absent Finder Bar */}
+      <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search house, name, phone or address to mark absent..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full text-xs font-semibold pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50/70"
+            />
+          </div>
+
+          {/* Quick select dropdown to jump to absent */}
+          <div className="hidden sm:block">
+            <select
+              value={quickAbsentCustomerId}
+              onChange={(e) => handleQuickAbsentFromDropdown(e.target.value)}
+              className="text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200 rounded-xl px-3 py-2.5 cursor-pointer hover:bg-rose-100 transition-colors"
+            >
+              <option value="">🚫 Quick Mark Absent...</option>
+              {customers.map((c) => (
+                <option key={c.customer_id} value={c.customer_id}>
+                  {c.name} ({c.address.slice(0, 20)}...)
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Touch Filter Pills */}
+        <div className="flex items-center p-1 bg-slate-100 rounded-xl gap-1">
+          <button
+            onClick={() => setFilter('ALL')}
+            className={`flex-1 py-2 text-xs font-extrabold rounded-lg transition-all tap-highlight ${
+              filter === 'ALL'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            All Stops ({totalStops})
+          </button>
+          <button
+            onClick={() => setFilter('DELIVERED')}
+            className={`flex-1 py-2 text-xs font-extrabold rounded-lg transition-all tap-highlight ${
+              filter === 'DELIVERED'
+                ? 'bg-white text-emerald-700 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Delivered ({deliveredStops})
+          </button>
+          <button
+            onClick={() => setFilter('ABSENT')}
+            className={`flex-1 py-2 text-xs font-extrabold rounded-lg transition-all tap-highlight ${
+              filter === 'ABSENT'
+                ? 'bg-white text-rose-700 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Absent / Missed ({absentStops + vacationStops})
+          </button>
+        </div>
       </div>
 
       {/* Deliveries Card List */}
       <div className="space-y-4">
         {displayedDeliveries.length === 0 ? (
           <div className="bg-white rounded-3xl p-10 text-center border border-slate-200/80 shadow-xs">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3">
-              <CheckCircle2 className="w-7 h-7" />
+            <div className="w-14 h-14 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto mb-3">
+              <Search className="w-7 h-7" />
             </div>
-            <h4 className="font-extrabold text-slate-900 text-base">All Caught Up!</h4>
+            <h4 className="font-extrabold text-slate-900 text-base">No Customers Found</h4>
             <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
-              No delivery stops remaining under the "{filter.toLowerCase()}" filter.
+              No delivery stops matching your current search or filter.
             </p>
           </div>
         ) : (
@@ -212,25 +308,37 @@ export function DeliveryBoyRouteView() {
             const customer = getCustomer(delivery.customer_id);
             if (!customer) return null;
 
-            const isPending = delivery.status === 'PENDING';
             const isDelivered = delivery.status === 'DELIVERED';
+            const isAbsent = delivery.status === 'CUSTOMER_ABSENT' || delivery.status === 'NOT_DELIVERED';
             const isVacation = delivery.status === 'VACATION';
 
             return (
               <div
                 key={delivery.delivery_id}
                 className={`bg-white rounded-3xl border transition-all duration-200 overflow-hidden ${
-                  isPending
-                    ? 'border-blue-300 shadow-card ring-1 ring-blue-500/10'
-                    : isDelivered
-                    ? 'border-emerald-200 bg-emerald-50/15 shadow-2xs'
-                    : 'border-slate-200/80 opacity-85'
+                  isAbsent
+                    ? 'border-rose-300 bg-rose-50/20 shadow-xs'
+                    : isVacation
+                    ? 'border-blue-200 bg-blue-50/20 opacity-90'
+                    : 'border-slate-200/90 shadow-2xs'
                 }`}
               >
                 {/* Stop Top Ribbon */}
-                <div className="px-5 py-3.5 flex items-center justify-between border-b border-slate-100 bg-slate-50/50">
+                <div className={`px-5 py-3.5 flex items-center justify-between border-b ${
+                  isAbsent 
+                    ? 'border-rose-100 bg-rose-50/60' 
+                    : isVacation 
+                    ? 'border-blue-100 bg-blue-50/50' 
+                    : 'border-slate-100 bg-slate-50/50'
+                }`}>
                   <div className="flex items-center gap-2.5">
-                    <span className="w-7 h-7 rounded-xl bg-blue-600 text-white text-xs font-black flex items-center justify-center shadow-xs">
+                    <span className={`w-7 h-7 rounded-xl text-xs font-black flex items-center justify-center shadow-xs ${
+                      isAbsent
+                        ? 'bg-rose-600 text-white'
+                        : isVacation
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-emerald-600 text-white'
+                    }`}>
                       #{index + 1}
                     </span>
                     <div>
@@ -240,7 +348,27 @@ export function DeliveryBoyRouteView() {
                       <p className="text-[10px] text-slate-400 font-mono">{customer.customer_id}</p>
                     </div>
                   </div>
-                  <DeliveryStatusBadge status={delivery.status} />
+
+                  <div className="flex items-center gap-2">
+                    {isDelivered && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        Delivered (Present)
+                      </span>
+                    )}
+                    {isAbsent && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
+                        <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                        Absent (₹0 Bill)
+                      </span>
+                    )}
+                    {isVacation && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 border border-blue-300">
+                        <CalendarOff className="w-3.5 h-3.5 text-blue-600" />
+                        Vacation (Leave)
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Customer Details Body */}
@@ -253,16 +381,16 @@ export function DeliveryBoyRouteView() {
                         <span className="font-bold text-slate-900 text-sm block leading-snug">
                           {customer.address}
                         </span>
-                        <span className="text-[11px] text-slate-500">Morning Drop-off</span>
+                        <span className="text-[11px] text-slate-500">Daily Morning Flower Drop</span>
                       </div>
                     </div>
 
-                    {/* Quick Call Action (Large Touch Target) */}
+                    {/* Quick Call Action */}
                     <a
                       href={`tel:${customer.phone}`}
-                      className="shrink-0 flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-3.5 py-2.5 rounded-xl text-xs shadow-sm shadow-emerald-500/20 tap-highlight min-h-[42px]"
+                      className="shrink-0 flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-3.5 py-2 rounded-xl text-xs shadow-sm shadow-emerald-500/20 tap-highlight"
                     >
-                      <Phone className="w-4 h-4" />
+                      <Phone className="w-3.5 h-3.5" />
                       <span>Call</span>
                     </a>
                   </div>
@@ -275,20 +403,30 @@ export function DeliveryBoyRouteView() {
                       </div>
                       <span>{customer.flower_type}</span>
                     </div>
-                    <span className="font-mono font-black text-slate-900 text-sm">
-                      {formatCurrency(customer.current_rate)}
-                      <span className="text-[10px] font-normal text-slate-500 ml-1">/day</span>
-                    </span>
+                    <div className="text-right">
+                      <span className="font-mono font-black text-slate-900 text-sm">
+                        {formatCurrency(customer.current_rate)}
+                        <span className="text-[10px] font-normal text-slate-500 ml-1">/day</span>
+                      </span>
+                      <p className="text-[10px] font-bold text-slate-500">
+                        {isAbsent || isVacation ? '₹0 Billed Today' : 'Billable Today'}
+                      </p>
+                    </div>
                   </div>
 
-                  {/* Special Gate Instructions Note */}
-                  {customer.instructions && (
-                    <div className="bg-amber-50/90 border border-amber-200/90 p-3 rounded-2xl text-xs text-amber-950 flex items-start gap-2.5 shadow-2xs">
-                      <FileText className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                      <div>
-                        <strong className="font-extrabold text-amber-900">Delivery Instructions: </strong>
-                        <span>{customer.instructions}</span>
+                  {/* Reason Box if marked Absent */}
+                  {isAbsent && (
+                    <div className="bg-rose-50 border border-rose-200/90 p-3.5 rounded-2xl text-xs text-rose-950 space-y-1">
+                      <div className="flex items-center gap-1.5 font-black text-rose-900">
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>Absent Reason Recorded:</span>
                       </div>
+                      <p className="font-bold text-rose-950 pl-5">
+                        "{delivery.absent_reason || delivery.notes || 'Marked Absent'}"
+                      </p>
+                      <p className="text-[11px] text-rose-700 pl-5">
+                        This day will NOT be charged to the customer at month-end.
+                      </p>
                     </div>
                   )}
 
@@ -296,76 +434,63 @@ export function DeliveryBoyRouteView() {
                   {isVacation && (
                     <div className="bg-blue-50 border border-blue-200 p-3 rounded-2xl text-xs text-blue-900 flex items-center gap-2.5 font-semibold">
                       <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
-                      <span>Customer is on approved vacation. Do not leave flowers. Non-billable.</span>
+                      <span>Customer is on approved vacation. Do not deliver flowers. ₹0 Billed.</span>
                     </div>
                   )}
 
-                  {/* Driver Note Recorded */}
-                  {delivery.notes && (
-                    <div className="text-xs text-slate-600 italic bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-100">
-                      Driver Note: "{delivery.notes}"
-                    </div>
-                  )}
-
-                  {/* Mobile Touch Action Buttons */}
-                  <div className="pt-2 border-t border-slate-100 space-y-2">
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        onClick={() => handleUpdateStatus(delivery, 'DELIVERED')}
-                        className={`col-span-1 min-h-[50px] rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 transition-all tap-highlight ${
-                          isDelivered
-                            ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20'
-                            : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-600 hover:text-white border border-emerald-200/90 active:scale-95'
-                        }`}
+                  {/* Delivery Boy Actions */}
+                  <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+                    {/* Primary Status Switcher */}
+                    {isDelivered && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenAbsentModal(delivery, customer)}
+                        className="bg-rose-50 text-rose-700 hover:bg-rose-100 border-rose-200 font-bold flex items-center justify-center gap-1.5 min-h-[44px]"
                       >
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Delivered</span>
-                      </button>
+                        <UserX className="w-4 h-4 text-rose-600" />
+                        <span>Mark Absent / Skip Today (कारण दर्ज करें)</span>
+                      </Button>
+                    )}
 
-                      <button
-                        onClick={() => handleUpdateStatus(delivery, 'CUSTOMER_ABSENT')}
-                        className={`col-span-1 min-h-[50px] rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 transition-all tap-highlight ${
-                          delivery.status === 'CUSTOMER_ABSENT'
-                            ? 'bg-slate-800 text-white shadow-md'
-                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 active:scale-95'
-                        }`}
-                      >
-                        <Clock className="w-4 h-4" />
-                        <span>Absent</span>
-                      </button>
-
-                      <button
-                        onClick={() => handleUpdateStatus(delivery, 'NOT_DELIVERED')}
-                        className={`col-span-1 min-h-[50px] rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 transition-all tap-highlight ${
-                          delivery.status === 'NOT_DELIVERED'
-                            ? 'bg-rose-600 text-white shadow-md shadow-rose-500/20'
-                            : 'bg-rose-50 text-rose-800 hover:bg-rose-600 hover:text-white border border-rose-200/90 active:scale-95'
-                        }`}
-                      >
-                        <XCircle className="w-4 h-4" />
-                        <span>Missed</span>
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs pt-1 px-1">
-                      <button
-                        onClick={() => openNoteDialog(delivery)}
-                        className="text-slate-500 hover:text-blue-600 font-bold flex items-center gap-1 tap-highlight py-1"
-                      >
-                        <FileText className="w-3.5 h-3.5 text-blue-500" />
-                        <span>{delivery.notes ? 'Edit Driver Note' : '+ Add Driver Note'}</span>
-                      </button>
-
-                      {!isPending && (
-                        <button
-                          onClick={() => handleUpdateStatus(delivery, 'PENDING')}
-                          className="text-slate-400 hover:text-amber-600 font-semibold flex items-center gap-1 text-[11px]"
+                    {isAbsent && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleUpdateStatus(delivery, 'DELIVERED')}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 min-h-[44px]"
                         >
-                          <RotateCcw className="w-3 h-3" />
-                          <span>Reset</span>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Revert to Delivered (Present)</span>
+                        </Button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAbsentModal(delivery, customer)}
+                          className="text-xs font-bold text-rose-700 hover:text-rose-900 underline px-2 py-1"
+                        >
+                          Change Reason
                         </button>
-                      )}
-                    </div>
+                      </div>
+                    )}
+
+                    {isVacation && (
+                      <span className="text-xs font-semibold text-slate-500 italic">
+                        Planned leave approved by admin
+                      </span>
+                    )}
+
+                    {/* Driver Note button */}
+                    <button
+                      onClick={() => openNoteDialog(delivery)}
+                      className="text-slate-500 hover:text-blue-600 font-bold flex items-center justify-center gap-1 text-xs py-1"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-blue-500" />
+                      <span>{delivery.notes ? 'Edit Note' : '+ Note'}</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -373,6 +498,16 @@ export function DeliveryBoyRouteView() {
           })
         )}
       </div>
+
+      {/* Reusable Mark Absent Modal */}
+      <MarkAbsentModal
+        isOpen={absentModalOpen}
+        onClose={() => setAbsentModalOpen(false)}
+        customer={targetCustomer}
+        delivery={targetDelivery}
+        date={todayStr}
+        onConfirmAbsent={handleConfirmAbsent}
+      />
 
       {/* Note dialog */}
       <Dialog

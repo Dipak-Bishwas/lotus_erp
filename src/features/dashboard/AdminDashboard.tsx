@@ -155,7 +155,7 @@ export function AdminDashboard({
         <StatCard
           label="Today Completed"
           value={`${deliveredToday.length}/${todayDeliveries.length}`}
-          subtitle={`${pendingToday.length} pending, ${vacationToday.length} on leave`}
+          subtitle={`${missedToday.length} absent, ${vacationToday.length} on leave`}
           icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />}
           onClick={() => onNavigate('deliveries')}
         />
