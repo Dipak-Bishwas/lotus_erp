@@ -80,48 +80,26 @@ export function MobileBottomNav({
             </button>
           </>
         ) : (
-          <>
-            <button
-              onClick={() => onSelectTab('deliveries')}
-              className={cn(
-                'flex flex-col items-center justify-center py-1 px-3 rounded-xl text-[11px] font-semibold transition-all tap-highlight min-w-[64px]',
-                activeTab === 'deliveries' ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-900'
-              )}
-            >
-              <Truck className="w-5 h-5 mb-0.5" />
-              <span>My Route</span>
-            </button>
-
+          <div className="flex items-center justify-between w-full px-4 py-1">
             <button
               onClick={() => onSelectTab('customers')}
               className={cn(
-                'flex flex-col items-center justify-center py-1 px-3 rounded-xl text-[11px] font-semibold transition-all tap-highlight min-w-[64px]',
-                activeTab === 'customers' ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+                'flex items-center gap-2 py-1.5 px-3 rounded-xl text-xs font-bold transition-all tap-highlight',
+                activeTab === 'customers' ? 'bg-blue-50 text-blue-700' : 'text-slate-600'
               )}
             >
-              <Users className="w-5 h-5 mb-0.5" />
-              <span>Addresses</span>
-            </button>
-
-            <button
-              onClick={() => onSelectTab('absences')}
-              className={cn(
-                'flex flex-col items-center justify-center py-1 px-3 rounded-xl text-[11px] font-semibold transition-all tap-highlight min-w-[64px]',
-                activeTab === 'absences' ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-900'
-              )}
-            >
-              <CalendarOff className="w-5 h-5 mb-0.5" />
-              <span>Leaves</span>
+              <Users className="w-4 h-4" />
+              <span>My Assigned Clients</span>
             </button>
 
             <button
               onClick={onOpenMenu}
-              className="flex flex-col items-center justify-center py-1 px-3 rounded-xl text-[11px] font-semibold text-slate-500 hover:text-slate-900 transition-all tap-highlight min-w-[64px]"
+              className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-900 bg-slate-100"
             >
-              <Menu className="w-5 h-5 mb-0.5" />
+              <Menu className="w-4 h-4" />
               <span>Menu</span>
             </button>
-          </>
+          </div>
         )}
       </div>
     </nav>

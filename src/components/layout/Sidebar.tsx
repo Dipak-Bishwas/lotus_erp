@@ -108,22 +108,9 @@ export function Sidebar({
 
   const deliveryBoyNavSections: NavSection[] = [
     {
-      title: 'TODAY\'S ROUTE',
-      items: [
-        { 
-          id: 'deliveries' as NavTab, 
-          label: 'My Route (Live)', 
-          icon: Truck, 
-          badge: pendingCount > 0 ? `${pendingCount} Left` : 'Done',
-          badgeColor: pendingCount > 0 ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
-        },
-      ],
-    },
-    {
       title: 'DIRECTORY',
       items: [
         { id: 'customers' as NavTab, label: 'My Assigned Clients', icon: Users, count: `${customersCount}` },
-        { id: 'absences' as NavTab, label: 'Planned Customer Leaves', icon: CalendarOff },
       ],
     },
   ];
@@ -287,24 +274,6 @@ export function Sidebar({
               })}
             </div>
           ))}
-
-          {/* Quick Support / Contact for Delivery Boy */}
-          {isDeliveryBoy && (
-            <div className="pt-2">
-              <a
-                href="tel:9899001122"
-                className="w-full flex items-center justify-between p-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold transition-all tap-highlight"
-              >
-                <div className="flex items-center gap-2">
-                  <PhoneCall className="w-4 h-4 text-emerald-600" />
-                  <span>Call Shop Owner</span>
-                </div>
-                <span className="text-[10px] bg-emerald-200/80 px-1.5 py-0.5 rounded text-emerald-900">
-                  Help Desk
-                </span>
-              </a>
-            </div>
-          )}
         </div>
 
         {/* Footer shop status card */}

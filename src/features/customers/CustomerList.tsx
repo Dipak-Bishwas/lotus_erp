@@ -8,10 +8,11 @@ import { Select } from '@/components/ui/Select';
 import { CustomerStatusBadge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/data-display/EmptyState';
 import { MoneyDisplay } from '@/components/data-display/MoneyDisplay';
-import { formatCurrency, formatPhone } from '@/lib/formatters';
-import { Customer, DeliveryArea, User } from '@/types';
+import { formatCurrency, formatPhone, getTodayDateString } from '@/lib/formatters';
+import { Customer, DeliveryArea, User, DailyDelivery } from '@/types';
 import { CustomerFormModal } from './CustomerFormModal';
 import { CustomerDetailModal } from './CustomerDetailModal';
+import { MarkAbsentModal } from '@/features/delivery/MarkAbsentModal';
 import {
   Plus,
   Search,
@@ -32,7 +33,9 @@ import {
   FileText,
   X,
   TrendingUp,
-  ShieldCheck
+  ShieldCheck,
+  CheckCircle2,
+  UserX
 } from 'lucide-react';
 
 export function CustomerList({
@@ -50,6 +53,7 @@ export function CustomerList({
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [areas, setAreas] = useState<DeliveryArea[]>([]);
   const [deliveryBoys, setDeliveryBoys] = useState<User[]>([]);
+  const [todayDeliveries, setTodayDeliveries] = useState<DailyDelivery[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedArea, setSelectedArea] = useState('ALL');
@@ -61,6 +65,11 @@ export function CustomerList({
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [detailCustomer, setDetailCustomer] = useState<Customer | null>(null);
 
+  // Absent Modal State
+  const [absentModalOpen, setAbsentModalOpen] = useState(false);
+  const [absentTargetCustomer, setAbsentTargetCustomer] = useState<Customer | null>(null);
+  const [absentTargetDelivery, setAbsentTargetDelivery] = useState<DailyDelivery | null>(null);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -69,9 +78,42 @@ export function CustomerList({
     const custs = StorageService.getCustomers();
     const ars = StorageService.getAreas();
     const boys = StorageService.getDeliveryBoys();
+    const dels = StorageService.getDeliveries(getTodayDateString());
     setCustomers(custs);
     setAreas(ars);
     setDeliveryBoys(boys);
+    setTodayDeliveries(dels);
+  };
+
+  const handleOpenAbsentModal = (customer: Customer) => {
+    const del = todayDeliveries.find((d) => d.customer_id === customer.customer_id);
+    setAbsentTargetCustomer(customer);
+    setAbsentTargetDelivery(del || null);
+    setAbsentModalOpen(true);
+  };
+
+  const handleConfirmAbsent = (reason: string, notes?: string) => {
+    if (absentTargetCustomer) {
+      StorageService.recordCustomerDailyAbsence(
+        absentTargetCustomer.customer_id,
+        getTodayDateString(),
+        reason,
+        notes,
+        currentUser
+      );
+      showToast('Marked Absent', `${absentTargetCustomer.name} marked absent for today (₹0 bill)`, 'info');
+      setAbsentModalOpen(false);
+      loadData();
+    }
+  };
+
+  const handleRevertToPresent = (customer: Customer) => {
+    const del = todayDeliveries.find((d) => d.customer_id === customer.customer_id);
+    if (del) {
+      StorageService.updateDeliveryStatus(del.delivery_id, 'DELIVERED', currentUser);
+      showToast('Reverted to Present', `${customer.name} marked Delivered`, 'success');
+      loadData();
+    }
   };
 
   const handleSaveCustomer = (customer: Customer) => {
@@ -141,7 +183,7 @@ export function CustomerList({
           </div>
           <p className="text-xs text-slate-500 mt-1">
             {currentUser.role === 'DELIVERY_BOY'
-              ? 'Customer delivery points, door instructions, and direct telephone access'
+              ? 'All daily flowers are auto-marked Delivered. Click "Absent" only if customer cancelled or was missed.'
               : 'Manage customer accounts, daily flower subscriptions, rates, and delivery allocations'}
           </p>
         </div>
@@ -189,6 +231,22 @@ export function CustomerList({
           )}
         </div>
       </div>
+
+      {/* Auto-Present Banner for Delivery Boy */}
+      {currentUser.role === 'DELIVERY_BOY' && (
+        <div className="p-3.5 bg-emerald-50 border border-emerald-200/90 rounded-2xl text-xs text-emerald-950 flex items-start gap-2.5 shadow-2xs">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <strong className="font-extrabold text-emerald-900 block">
+              Auto-Present Active (Default Delivered):
+            </strong>
+            <span className="text-emerald-800">
+              Aapke sabhi {filteredCustomers.length} assigned customers ko aaj automatically <strong>Delivered (Present)</strong> mark kar diya gaya hai. 
+              Aapko roz application kholne ki zaroorat nahi hai. Agar kisi ghar me delivery chhoot gayi ya customer ne mana kiya, sirf us customer ke card par <strong>"Absent (कारण दर्ज करें)"</strong> dabayein.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Top Metric Summary Ribbon */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -321,81 +379,125 @@ export function CustomerList({
       ) : viewMode === 'CARDS' ? (
         /* ================= CARDS GRID VIEW ================= */
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredCustomers.map((c) => (
-            <div
-              key={c.customer_id}
-              className="bg-white rounded-2xl border border-slate-200/90 hover:border-blue-400 p-5 shadow-xs hover:shadow-card transition-all duration-200 flex flex-col justify-between group space-y-4"
-            >
-              {/* Top Row: Avatar, Name & Status */}
-              <div>
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-100 to-indigo-50 border border-blue-200/60 flex items-center justify-center text-blue-700 font-black text-base shadow-xs group-hover:scale-105 transition-transform">
-                      {c.name.slice(0, 2).toUpperCase()}
-                    </div>
-                    <div>
-                      <h3 className="font-extrabold text-slate-900 text-base leading-tight group-hover:text-blue-600 transition-colors">
-                        {c.name}
-                      </h3>
-                      <p className="text-[11px] font-mono text-slate-400">{c.customer_id}</p>
-                    </div>
-                  </div>
-                  <CustomerStatusBadge status={c.status} />
-                </div>
+          {filteredCustomers.map((c) => {
+            const todayDelivery = todayDeliveries.find((d) => d.customer_id === c.customer_id);
+            const isAbsentToday = todayDelivery?.status === 'CUSTOMER_ABSENT' || todayDelivery?.status === 'NOT_DELIVERED';
+            const isVacationToday = todayDelivery?.status === 'VACATION';
 
-                {/* Subscribed Product & Price Pill */}
-                <div className="p-3 bg-gradient-to-r from-blue-50/60 to-slate-50 rounded-xl border border-blue-100/80 flex items-center justify-between text-xs mb-3">
-                  <div className="flex items-center gap-2">
-                    <Flower2 className="w-4 h-4 text-rose-500 shrink-0" />
-                    <div>
-                      <span className="font-bold text-slate-900 block leading-tight">
-                        {c.flower_type}
-                      </span>
-                      <span className="text-[10px] text-slate-500">Pooja Flower Subscription</span>
+            return (
+              <div
+                key={c.customer_id}
+                className={`bg-white rounded-2xl border p-5 shadow-xs hover:shadow-card transition-all duration-200 flex flex-col justify-between group space-y-4 ${
+                  isAbsentToday
+                    ? 'border-rose-300 bg-rose-50/20'
+                    : isVacationToday
+                    ? 'border-blue-200 bg-blue-50/20'
+                    : 'border-slate-200/90 hover:border-blue-400'
+                }`}
+              >
+                {/* Top Row: Avatar, Name & Status */}
+                <div>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-100 to-indigo-50 border border-blue-200/60 flex items-center justify-center text-blue-700 font-black text-base shadow-xs group-hover:scale-105 transition-transform">
+                        {c.name.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <h3 className="font-extrabold text-slate-900 text-base leading-tight group-hover:text-blue-600 transition-colors">
+                          {c.name}
+                        </h3>
+                        <p className="text-[11px] font-mono text-slate-400">{c.customer_id}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="font-black text-blue-700 font-mono text-sm block">
-                      {formatCurrency(c.current_rate)}
-                    </span>
-                    <span className="text-[9px] text-slate-400 font-semibold uppercase">/ day</span>
-                  </div>
-                </div>
-
-                {/* Address & Contact Details */}
-                <div className="space-y-2 text-xs text-slate-600">
-                  <div className="flex items-start gap-2">
-                    <MapPin className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                    <span className="font-medium text-slate-700 leading-snug">{c.address}</span>
+                    <CustomerStatusBadge status={c.status} />
                   </div>
 
-                  <div className="flex items-center justify-between pt-1">
+                  {/* Subscribed Product & Price Pill */}
+                  <div className="p-3 bg-gradient-to-r from-blue-50/60 to-slate-50 rounded-xl border border-blue-100/80 flex items-center justify-between text-xs mb-3">
                     <div className="flex items-center gap-2">
-                      <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                      <span className="font-semibold text-slate-900">{formatPhone(c.phone)}</span>
+                      <Flower2 className="w-4 h-4 text-rose-500 shrink-0" />
+                      <div>
+                        <span className="font-bold text-slate-900 block leading-tight">
+                          {c.flower_type}
+                        </span>
+                        <span className="text-[10px] text-slate-500">Pooja Flower Subscription</span>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="font-black text-blue-700 font-mono text-sm block">
+                        {formatCurrency(c.current_rate)}
+                      </span>
+                      <span className="text-[9px] text-slate-400 font-semibold uppercase">/ day</span>
+                    </div>
+                  </div>
+
+                  {/* Address & Contact Details */}
+                  <div className="space-y-2 text-xs text-slate-600">
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                      <span className="font-medium text-slate-700 leading-snug">{c.address}</span>
                     </div>
 
-                    <a
-                      href={`tel:${c.phone}`}
-                      className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200 flex items-center gap-1 tap-highlight"
-                    >
-                      <Phone className="w-3 h-3" />
-                      <span>Call</span>
-                    </a>
+                    <div className="flex items-center justify-between pt-1">
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="font-semibold text-slate-900">{formatPhone(c.phone)}</span>
+                      </div>
+
+                      <a
+                        href={`tel:${c.phone}`}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200 flex items-center gap-1 tap-highlight"
+                      >
+                        <Phone className="w-3 h-3" />
+                        <span>Call</span>
+                      </a>
+                    </div>
                   </div>
+
+                  {/* Gate / Delivery Instructions Note */}
+                  {c.instructions && (
+                    <div className="mt-3 p-2.5 bg-amber-50/90 rounded-xl border border-amber-200/80 text-[11px] text-amber-900 flex items-start gap-2">
+                      <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="font-bold">Gate Note: </strong>
+                        <span>{c.instructions}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Delivery Boy Today's Delivery Attendance Status */}
+                  {currentUser.role === 'DELIVERY_BOY' && (
+                    <div className={`mt-3 p-2.5 rounded-xl border text-xs flex items-center justify-between ${
+                      isAbsentToday
+                        ? 'bg-rose-50 border-rose-200 text-rose-950 font-bold'
+                        : isVacationToday
+                        ? 'bg-blue-50 border-blue-200 text-blue-950 font-bold'
+                        : 'bg-emerald-50/70 border-emerald-200 text-emerald-950 font-bold'
+                    }`}>
+                      <div className="flex items-center gap-1.5">
+                        {isAbsentToday ? (
+                          <>
+                            <UserX className="w-4 h-4 text-rose-600 shrink-0" />
+                            <span>Absent: {todayDelivery?.absent_reason || 'Marked Absent'}</span>
+                          </>
+                        ) : isVacationToday ? (
+                          <>
+                            <CalendarOff className="w-4 h-4 text-blue-600 shrink-0" />
+                            <span>On Leave / Vacation</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span>Delivered (Present)</span>
+                          </>
+                        )}
+                      </div>
+                      <span className="font-mono text-[11px] font-black">
+                        {isAbsentToday || isVacationToday ? '₹0 Today' : formatCurrency(c.current_rate)}
+                      </span>
+                    </div>
+                  )}
                 </div>
-
-                {/* Gate / Delivery Instructions Note */}
-                {c.instructions && (
-                  <div className="mt-3 p-2.5 bg-amber-50/90 rounded-xl border border-amber-200/80 text-[11px] text-amber-900 flex items-start gap-2">
-                    <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <strong className="font-bold">Gate Note: </strong>
-                      <span>{c.instructions}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
 
               {/* Bottom Card Footer */}
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
@@ -417,6 +519,32 @@ export function CustomerList({
                 )}
 
                 <div className="flex items-center gap-1.5">
+                  {currentUser.role === 'DELIVERY_BOY' && (
+                    <>
+                      {isAbsentToday ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleRevertToPresent(c)}
+                          className="text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 h-8 font-bold"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                          <span>Revert Present</span>
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenAbsentModal(c)}
+                          className="text-xs bg-rose-50 text-rose-700 hover:bg-rose-100 border-rose-200 h-8 font-bold"
+                        >
+                          <UserX className="w-3.5 h-3.5 mr-1" />
+                          <span>Absent (कारण दर्ज करें)</span>
+                        </Button>
+                      )}
+                    </>
+                  )}
+
                   <Button
                     size="sm"
                     variant="outline"
@@ -454,7 +582,8 @@ export function CustomerList({
                 </div>
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       ) : (
         /* ================= ENTERPRISE TABLE VIEW ================= */
@@ -590,6 +719,16 @@ export function CustomerList({
         onRecordPayment={onRecordPayment}
         onRecordAbsence={onRecordAbsence}
         onViewLedger={onViewLedger}
+      />
+
+      {/* Mark Absent Modal */}
+      <MarkAbsentModal
+        isOpen={absentModalOpen}
+        onClose={() => setAbsentModalOpen(false)}
+        customer={absentTargetCustomer}
+        delivery={absentTargetDelivery}
+        date={getTodayDateString()}
+        onConfirmAbsent={handleConfirmAbsent}
       />
     </div>
   );
