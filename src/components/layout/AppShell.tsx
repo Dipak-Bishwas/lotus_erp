@@ -23,9 +23,15 @@ export function AppShell() {
   const { currentUser, isAdmin, isDeliveryBoy } = useAuth();
   const { showToast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
+  const [activeTab, setActiveTab] = useState<NavTab>(isDeliveryBoy ? 'deliveries' : 'dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  React.useEffect(() => {
+    if (isDeliveryBoy) {
+      setActiveTab('deliveries');
+    }
+  }, [currentUser, isDeliveryBoy]);
 
   // Global modals triggered from shortcuts
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);

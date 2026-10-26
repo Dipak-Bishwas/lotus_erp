@@ -10,7 +10,8 @@ import {
   ShieldAlert,
   CalendarDays,
   Sparkles,
-  ChevronDown
+  ChevronDown,
+  LogOut
 } from 'lucide-react';
 import { formatDate, getTodayDateString } from '@/lib/formatters';
 
@@ -21,7 +22,7 @@ export function Topbar({
   onMenuToggle: () => void;
   onResetData: () => void;
 }) {
-  const { currentUser, switchUser, availableUsers, isAdmin } = useAuth();
+  const { currentUser, switchUser, availableUsers, isAdmin, logout } = useAuth();
   const { showToast } = useToast();
 
   const handleReset = () => {
@@ -115,6 +116,16 @@ export function Topbar({
             className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors tap-highlight border border-transparent hover:border-slate-200"
           >
             <RotateCcw className="w-4 h-4" />
+          </button>
+
+          {/* Logout Button */}
+          <button
+            onClick={logout}
+            title="Log Out (लॉग आउट)"
+            className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors tap-highlight border border-rose-100 shadow-2xs flex items-center gap-1 text-xs font-bold"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Logout</span>
           </button>
         </div>
       </div>

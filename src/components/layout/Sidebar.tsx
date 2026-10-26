@@ -20,7 +20,8 @@ import {
   ShieldCheck,
   CheckCircle2,
   HelpCircle,
-  Flower2
+  Flower2,
+  LogOut
 } from 'lucide-react';
 import { getTodayDateString } from '@/lib/formatters';
 
@@ -61,7 +62,7 @@ export function Sidebar({
   isOpen: boolean;
   onClose: () => void;
 }) {
-  const { currentUser, isAdmin, isDeliveryBoy } = useAuth();
+  const { currentUser, isAdmin, isDeliveryBoy, logout } = useAuth();
   const todayStr = getTodayDateString();
 
   // Get live stats for badges
@@ -192,6 +193,14 @@ export function Sidebar({
                 </p>
               </div>
             </div>
+
+            <button
+              onClick={logout}
+              title="Log Out (लॉग आउट)"
+              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-white transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
 
           {isDeliveryBoy && (
