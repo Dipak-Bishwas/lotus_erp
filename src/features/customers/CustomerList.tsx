@@ -12,7 +12,11 @@ import { formatCurrency, formatPhone, getTodayDateString } from '@/lib/formatter
 import { Customer, DeliveryArea, User, DailyDelivery } from '@/types';
 import { CustomerFormModal } from './CustomerFormModal';
 import { CustomerDetailModal } from './CustomerDetailModal';
+import { CustomerAttendanceCalendarModal } from './CustomerAttendanceCalendarModal';
 import { MarkAbsentModal } from '@/features/delivery/MarkAbsentModal';
+import { DeliveryActionModal } from '@/features/delivery/DeliveryActionModal';
+import { generateId } from '@/lib/utils';
+import { Payment, PaymentMethod } from '@/types';
 import {
   Plus,
   Search,
@@ -66,11 +70,17 @@ export function CustomerList({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [detailCustomer, setDetailCustomer] = useState<Customer | null>(null);
+  const [calendarTargetCustomer, setCalendarTargetCustomer] = useState<Customer | null>(null);
 
-  // Absent Modal State
+  // Absent Modal State (for Admin or direct absent)
   const [absentModalOpen, setAbsentModalOpen] = useState(false);
   const [absentTargetCustomer, setAbsentTargetCustomer] = useState<Customer | null>(null);
   const [absentTargetDelivery, setAbsentTargetDelivery] = useState<DailyDelivery | null>(null);
+
+  // Delivery Boy Action Modal State (Payment Receive & Absent popup)
+  const [deliveryActionModalOpen, setDeliveryActionModalOpen] = useState(false);
+  const [actionTargetCustomer, setActionTargetCustomer] = useState<Customer | null>(null);
+  const [actionTargetDelivery, setActionTargetDelivery] = useState<DailyDelivery | null>(null);
 
   useEffect(() => {
     loadData();
@@ -85,6 +95,81 @@ export function CustomerList({
     setAreas(ars);
     setDeliveryBoys(boys);
     setTodayDeliveries(dels);
+  };
+
+  const handleOpenDeliveryAction = (customer: Customer) => {
+    const del = todayDeliveries.find((d) => d.customer_id === customer.customer_id);
+    setActionTargetCustomer(customer);
+    setActionTargetDelivery(del || null);
+    setDeliveryActionModalOpen(true);
+  };
+
+  const handleDeliveryActionPayment = (paymentData: {
+    amount: number;
+    payment_method: PaymentMethod;
+    payment_date: string;
+    for_billing_month: string;
+    reference?: string;
+    notes?: string;
+  }) => {
+    if (!actionTargetCustomer) return;
+    const currentMonthCode = paymentData.payment_date.replace('-', '').slice(0, 6);
+    const randomReceiptNum = Math.floor(100 + Math.random() * 900);
+    const receiptNumber = `REC-${currentMonthCode}-${randomReceiptNum}`;
+
+    const monthNote = `Bill for ${paymentData.for_billing_month}`;
+    const combinedNotes = paymentData.notes
+      ? `${monthNote} • ${paymentData.notes}`
+      : monthNote;
+
+    const newPayment: Payment = {
+      payment_id: generateId('PAY'),
+      receipt_number: receiptNumber,
+      customer_id: actionTargetCustomer.customer_id,
+      payment_date: paymentData.payment_date,
+      amount: paymentData.amount,
+      payment_method: paymentData.payment_method,
+      reference: paymentData.reference,
+      notes: combinedNotes,
+      recorded_by: currentUser.user_id,
+      recorded_by_name: currentUser.name,
+      status: 'COMPLETED',
+    };
+
+    StorageService.recordPayment(newPayment, currentUser);
+    showToast(
+      'Payment Recorded',
+      `₹${paymentData.amount} received for ${paymentData.for_billing_month} from ${actionTargetCustomer.name}`,
+      'success'
+    );
+    loadData();
+  };
+
+  const handleDeliveryActionAbsent = (reason: string, date: string, notes?: string) => {
+    if (!actionTargetCustomer) return;
+    StorageService.recordCustomerDailyAbsence(
+      actionTargetCustomer.customer_id,
+      date,
+      reason,
+      notes,
+      currentUser
+    );
+    showToast(
+      'Marked Absent',
+      `${actionTargetCustomer.name} marked absent for ${date} (₹0 bill)`,
+      'info'
+    );
+    loadData();
+  };
+
+  const handleDeliveryActionRevertPresent = () => {
+    if (!actionTargetCustomer) return;
+    const del = todayDeliveries.find((d) => d.customer_id === actionTargetCustomer.customer_id);
+    if (del) {
+      StorageService.updateDeliveryStatus(del.delivery_id, 'DELIVERED', currentUser);
+      showToast('Reverted to Present', `${actionTargetCustomer.name} marked Delivered`, 'success');
+      loadData();
+    }
   };
 
   const handleOpenAbsentModal = (customer: Customer) => {
@@ -429,7 +514,14 @@ export function CustomerList({
             return (
               <div
                 key={c.customer_id}
+                onClick={
+                  !isAdmin
+                    ? () => handleOpenDeliveryAction(c)
+                    : undefined
+                }
                 className={`bg-white rounded-2xl border p-5 shadow-xs hover:shadow-card transition-all duration-200 flex flex-col justify-between group space-y-4 ${
+                  !isAdmin ? 'cursor-pointer active:scale-[0.99]' : ''
+                } ${
                   isAbsentToday
                     ? 'border-rose-300 bg-rose-50/20'
                     : isVacationToday
@@ -496,17 +588,6 @@ export function CustomerList({
                     </div>
                   </div>
 
-                  {/* Gate / Delivery Instructions Note */}
-                  {c.instructions && (
-                    <div className="mt-3 p-2.5 bg-amber-50/90 rounded-xl border border-amber-200/80 text-[11px] text-amber-900 flex items-start gap-2">
-                      <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                      <div>
-                        <strong className="font-bold">Gate Note: </strong>
-                        <span>{c.instructions}</span>
-                      </div>
-                    </div>
-                  )}
-
                   {/* Delivery Boy Today's Delivery Attendance Status */}
                   {currentUser.role === 'DELIVERY_BOY' && (
                     <div className={`mt-3 p-2.5 rounded-xl border text-xs flex items-center justify-between ${
@@ -560,41 +641,28 @@ export function CustomerList({
                   </span>
                 )}
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                   {currentUser.role === 'DELIVERY_BOY' && (
-                    <>
-                      {isAbsentToday ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleRevertToPresent(c)}
-                          className="text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 h-8 font-bold"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                          <span>Revert Present</span>
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleOpenAbsentModal(c)}
-                          className="text-xs bg-rose-50 text-rose-700 hover:bg-rose-100 border-rose-200 h-8 font-bold"
-                        >
-                          <UserX className="w-3.5 h-3.5 mr-1" />
-                          <span>Mark Absent</span>
-                        </Button>
-                      )}
-                    </>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={() => handleOpenDeliveryAction(c)}
+                      className="text-xs bg-blue-600 hover:bg-blue-700 text-white h-8 font-bold shadow-2xs"
+                    >
+                      <CreditCard className="w-3.5 h-3.5 mr-1" />
+                      <span>Action / Pay</span>
+                    </Button>
                   )}
 
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setDetailCustomer(c)}
-                    className="text-xs h-8 px-2.5"
+                    onClick={() => setCalendarTargetCustomer(c)}
+                    className="text-xs h-8 px-2.5 font-semibold text-slate-700 hover:text-blue-600 hover:border-blue-300"
+                    title="View Attendance & Delivery Calendar"
                   >
-                    <Eye className="w-3.5 h-3.5 mr-1" />
-                    <span>Details</span>
+                    <Eye className="w-3.5 h-3.5 mr-1 text-blue-600" />
+                    <span>View</span>
                   </Button>
 
                   {isAdmin && (
@@ -645,7 +713,17 @@ export function CustomerList({
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
               {filteredCustomers.map((c) => (
-                <tr key={c.customer_id} className="hover:bg-blue-50/30 transition-colors">
+                <tr
+                  key={c.customer_id}
+                  onClick={
+                    !isAdmin
+                      ? () => handleOpenDeliveryAction(c)
+                      : undefined
+                  }
+                  className={`hover:bg-blue-50/40 transition-colors ${
+                    !isAdmin ? 'cursor-pointer hover:bg-emerald-50/30' : ''
+                  }`}
+                >
                   <td className="py-3.5 px-4">
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs">
@@ -660,6 +738,7 @@ export function CustomerList({
                   <td className="py-3.5 px-4">
                     <a
                       href={`tel:${c.phone}`}
+                      onClick={(e) => e.stopPropagation()}
                       className="font-bold text-blue-600 hover:underline block"
                     >
                       {formatPhone(c.phone)}
@@ -693,15 +772,26 @@ export function CustomerList({
                     <CustomerStatusBadge status={c.status} />
                   </td>
                   <td className="py-3.5 px-4 text-right">
-                    <div className="inline-flex items-center gap-1.5">
+                    <div className="inline-flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      {!isAdmin && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => handleOpenDeliveryAction(c)}
+                          className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold"
+                          title="Collect Payment or Mark Absent"
+                        >
+                          <span>Action</span>
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => setDetailCustomer(c)}
+                        onClick={() => setCalendarTargetCustomer(c)}
                         className="p-1.5 text-slate-500 hover:text-blue-600"
-                        title="View Full Profile"
+                        title="View Attendance Calendar"
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="w-4 h-4 text-blue-600" />
                       </Button>
                       {isAdmin && (
                         <>
@@ -750,6 +840,13 @@ export function CustomerList({
         deliveryBoys={deliveryBoys}
       />
 
+      {/* Attendance & Delivery Calendar Modal */}
+      <CustomerAttendanceCalendarModal
+        isOpen={!!calendarTargetCustomer}
+        onClose={() => setCalendarTargetCustomer(null)}
+        customer={calendarTargetCustomer}
+      />
+
       <CustomerDetailModal
         isOpen={!!detailCustomer}
         onClose={() => setDetailCustomer(null)}
@@ -771,6 +868,21 @@ export function CustomerList({
         delivery={absentTargetDelivery}
         date={getTodayDateString()}
         onConfirmAbsent={handleConfirmAbsent}
+      />
+
+      {/* Delivery Boy Quick Action Modal (Receive Payment & Mark Absent) */}
+      <DeliveryActionModal
+        isOpen={deliveryActionModalOpen}
+        onClose={() => {
+          setDeliveryActionModalOpen(false);
+          setActionTargetCustomer(null);
+          setActionTargetDelivery(null);
+        }}
+        customer={actionTargetCustomer}
+        delivery={actionTargetDelivery}
+        onConfirmAbsent={handleDeliveryActionAbsent}
+        onRecordPayment={handleDeliveryActionPayment}
+        onRevertPresent={handleDeliveryActionRevertPresent}
       />
     </div>
   );

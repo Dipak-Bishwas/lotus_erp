@@ -23,13 +23,13 @@ export function AppShell() {
   const { currentUser, isAdmin, isDeliveryBoy } = useAuth();
   const { showToast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<NavTab>(isDeliveryBoy ? 'deliveries' : 'dashboard');
+  const [activeTab, setActiveTab] = useState<NavTab>(isDeliveryBoy ? 'customers' : 'dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   React.useEffect(() => {
     if (isDeliveryBoy) {
-      setActiveTab('deliveries');
+      setActiveTab('customers');
     }
   }, [currentUser, isDeliveryBoy]);
 

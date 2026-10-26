@@ -48,9 +48,11 @@ export function Topbar({
 
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-rose-500 flex items-center justify-center text-white shadow-md shadow-blue-500/25 ring-2 ring-white">
-                <Flower2 className="w-5 h-5 animate-pulse" />
-              </div>
+              <img
+                src="/favicon.png"
+                alt="Lotus ERP"
+                className="w-10 h-10 rounded-2xl object-cover shadow-md shadow-blue-500/25 ring-2 ring-white"
+              />
               <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full" />
             </div>
 
