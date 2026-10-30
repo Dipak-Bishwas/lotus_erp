@@ -41,7 +41,8 @@ import {
   CheckCircle2,
   UserX,
   AlertCircle,
-  IndianRupee
+  IndianRupee,
+  ChevronDown
 } from 'lucide-react';
 
 export function CustomerList({
@@ -64,6 +65,8 @@ export function CustomerList({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedArea, setSelectedArea] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
+  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<'ALL' | 'PAID' | 'PENDING'>('ALL');
+  const [selectedMonth, setSelectedMonth] = useState<string>('ALL');
 
   // Modals
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -250,6 +253,18 @@ export function CustomerList({
 
     if (selectedArea !== 'ALL' && c.area_id !== selectedArea) return false;
     if (selectedStatus !== 'ALL' && c.status !== selectedStatus) return false;
+
+    // Filter by Paid / Pending
+    if (selectedPaymentStatus === 'PAID' && (c.current_outstanding || 0) > 0) return false;
+    if (selectedPaymentStatus === 'PENDING' && (c.current_outstanding || 0) <= 0) return false;
+
+    // Filter by Month (based on customer subscription start/active date)
+    if (selectedMonth !== 'ALL') {
+      const monthPrefix = selectedMonth; // e.g. "2026-10"
+      const startedBeforeOrDuring = c.start_date.substring(0, 7) <= monthPrefix;
+      const notEndedBefore = !c.end_date || c.end_date.substring(0, 7) >= monthPrefix;
+      if (!startedBeforeOrDuring || !notEndedBefore) return false;
+    }
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -450,39 +465,99 @@ export function CustomerList({
         </div>
       </div>
 
-      {/* Search & Filter Bar */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-3.5 shadow-subtle space-y-3">
-        <div className="flex flex-col sm:flex-row items-stretch gap-2.5">
-          <div className="relative flex-1">
-            <Input
+      {/* Sleek Horizontal Search & Filter Bar */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-3 shadow-xs">
+        <div className="flex flex-col lg:flex-row items-center gap-3 w-full">
+          {/* Search Input */}
+          <div className="relative flex-1 w-full">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
               placeholder="Search by customer name, phone, address, or ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              leftIcon={<Search className="w-4 h-4 text-slate-400" />}
-              rightIcon={
-                searchQuery ? (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="p-1 hover:text-slate-600 tap-highlight"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                ) : undefined
-              }
+              className="w-full text-xs font-semibold pl-10 pr-9 py-2.5 bg-slate-50/80 hover:bg-slate-50 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-200 transition-colors"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <Select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="text-xs min-w-[130px]"
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="ACTIVE">Active</option>
-              <option value="PAUSED">Paused</option>
-              <option value="INACTIVE">Inactive</option>
-            </Select>
+          {/* Horizontal Filters in 1 clean row */}
+          <div className="flex items-center gap-2.5 w-full lg:w-auto shrink-0 overflow-x-auto pb-1 lg:pb-0">
+            {/* Payment Filter */}
+            <div className="relative shrink-0">
+              <select
+                value={selectedPaymentStatus}
+                onChange={(e) => setSelectedPaymentStatus(e.target.value as 'ALL' | 'PAID' | 'PENDING')}
+                className="appearance-none text-xs font-bold bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 rounded-xl pl-3 pr-8 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer transition-colors shadow-2xs"
+              >
+                <option value="ALL">💳 All Payments</option>
+                <option value="PAID">✅ Paid (Clear)</option>
+                <option value="PENDING">⏳ Pending (Due)</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400">
+                <ChevronDown className="w-3.5 h-3.5" />
+              </div>
+            </div>
+
+            {/* Month Filter */}
+            <div className="relative shrink-0">
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="appearance-none text-xs font-bold bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 rounded-xl pl-3 pr-8 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer transition-colors shadow-2xs"
+              >
+                <option value="ALL">📅 All Months</option>
+                <option value="2026-10">October 2026</option>
+                <option value="2026-09">September 2026</option>
+                <option value="2026-08">August 2026</option>
+                <option value="2026-07">July 2026</option>
+                <option value="2026-06">June 2026</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400">
+                <ChevronDown className="w-3.5 h-3.5" />
+              </div>
+            </div>
+
+            {/* Status Filter */}
+            <div className="relative shrink-0">
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="appearance-none text-xs font-bold bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 rounded-xl pl-3 pr-8 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer transition-colors shadow-2xs"
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="ACTIVE">Active</option>
+                <option value="PAUSED">Paused</option>
+                <option value="INACTIVE">Inactive</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400">
+                <ChevronDown className="w-3.5 h-3.5" />
+              </div>
+            </div>
+
+            {/* Reset All Filters button if any active */}
+            {(selectedPaymentStatus !== 'ALL' || selectedMonth !== 'ALL' || selectedStatus !== 'ALL' || searchQuery) && (
+              <button
+                onClick={() => {
+                  setSelectedPaymentStatus('ALL');
+                  setSelectedMonth('ALL');
+                  setSelectedStatus('ALL');
+                  setSearchQuery('');
+                }}
+                className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2.5 py-2 rounded-xl transition-colors shrink-0"
+                title="Reset all filters"
+              >
+                Reset
+              </button>
+            )}
           </div>
         </div>
       </div>
