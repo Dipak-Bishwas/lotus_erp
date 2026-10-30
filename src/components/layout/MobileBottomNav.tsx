@@ -39,17 +39,6 @@ export function MobileBottomNav({
             </button>
 
             <button
-              onClick={() => onSelectTab('deliveries')}
-              className={cn(
-                'flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[11px] font-semibold transition-all tap-highlight min-w-[54px]',
-                activeTab === 'deliveries' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-900'
-              )}
-            >
-              <Truck className="w-5 h-5 mb-0.5" />
-              <span>Deliveries</span>
-            </button>
-
-            <button
               onClick={() => onSelectTab('customers')}
               className={cn(
                 'flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[11px] font-semibold transition-all tap-highlight min-w-[54px]',
@@ -57,26 +46,29 @@ export function MobileBottomNav({
               )}
             >
               <Users className="w-5 h-5 mb-0.5" />
-              <span>Clients</span>
+              <span>Customers</span>
             </button>
 
             <button
-              onClick={() => onSelectTab('billing')}
+              onClick={() => onSelectTab('payments')}
               className={cn(
                 'flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[11px] font-semibold transition-all tap-highlight min-w-[54px]',
-                activeTab === 'billing' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-900'
+                activeTab === 'payments' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-900'
               )}
             >
               <Receipt className="w-5 h-5 mb-0.5" />
-              <span>Billing</span>
+              <span>Payments</span>
             </button>
 
             <button
-              onClick={onOpenMenu}
-              className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[11px] font-semibold text-slate-500 hover:text-slate-900 transition-all tap-highlight min-w-[54px]"
+              onClick={() => onSelectTab('staff')}
+              className={cn(
+                'flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[11px] font-semibold transition-all tap-highlight min-w-[54px]',
+                activeTab === 'staff' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-900'
+              )}
             >
-              <Menu className="w-5 h-5 mb-0.5" />
-              <span>More</span>
+              <Truck className="w-5 h-5 mb-0.5" />
+              <span>Staff</span>
             </button>
           </>
         ) : (

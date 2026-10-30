@@ -77,31 +77,9 @@ export function Sidebar({
       title: 'OPERATIONS',
       items: [
         { id: 'dashboard' as NavTab, label: 'Admin Dashboard', icon: LayoutDashboard },
-        { 
-          id: 'deliveries' as NavTab, 
-          label: 'Daily Deliveries', 
-          icon: Truck, 
-          badge: pendingCount > 0 ? `${pendingCount} Pending` : 'All Done',
-          badgeColor: pendingCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
-        },
         { id: 'customers' as NavTab, label: 'Customer Management', icon: Users, count: `${customersCount}` },
-        { id: 'absences' as NavTab, label: 'Absence & Leave', icon: CalendarOff },
-      ],
-    },
-    {
-      title: 'BILLING & FINANCIALS',
-      items: [
-        { id: 'billing' as NavTab, label: 'Monthly Invoicing', icon: Receipt },
         { id: 'payments' as NavTab, label: 'Payments & Receipts', icon: CreditCard },
-        { id: 'ledger' as NavTab, label: 'Customer Ledger', icon: BookOpen },
-      ],
-    },
-    {
-      title: 'ADMIN & COMPLIANCE',
-      items: [
         { id: 'staff' as NavTab, label: 'Delivery Staff', icon: MapPin },
-        { id: 'reports' as NavTab, label: 'Reports & Export', icon: BarChart3 },
-        { id: 'audit' as NavTab, label: 'Audit Trail', icon: History },
       ],
     },
   ];

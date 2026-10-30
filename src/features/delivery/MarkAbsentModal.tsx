@@ -98,12 +98,14 @@ export function MarkAbsentModal({
     onClose();
   };
 
+  const isToday = date === new Date().toISOString().split('T')[0];
+
   return (
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title="Mark Customer Absent for Today"
-      description="Record reason for skipping delivery. This day will be excluded from the customer's monthly bill."
+      title={isToday ? "Mark Customer Absent for Today" : `Mark Customer Absent for ${formatDate(date)}`}
+      description="Record reason for skipping delivery. This day will be excluded from the customer's monthly bill (₹0)."
       maxWidth="md"
     >
       <form onSubmit={handleSubmit} className="space-y-4 pt-1">

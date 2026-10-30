@@ -18,12 +18,14 @@ interface CustomerAttendanceCalendarModalProps {
   isOpen: boolean;
   onClose: () => void;
   customer: Customer | null;
+  onSelectDateAbsent?: (date: string, delivery?: DailyDelivery | null) => void;
 }
 
 export function CustomerAttendanceCalendarModal({
   isOpen,
   onClose,
   customer,
+  onSelectDateAbsent,
 }: CustomerAttendanceCalendarModalProps) {
   if (!customer) return null;
 
@@ -111,6 +113,7 @@ export function CustomerAttendanceCalendarModal({
           dateStr,
           status: 'ABSENT' as const,
           reason,
+          delivery: delivery || null,
           isToday: dateStr === todayStr,
         });
       } else if (dateStr > todayStr) {
@@ -119,6 +122,7 @@ export function CustomerAttendanceCalendarModal({
           day,
           dateStr,
           status: 'FUTURE' as const,
+          delivery: delivery || null,
           isToday: dateStr === todayStr,
         });
       } else {
@@ -128,6 +132,7 @@ export function CustomerAttendanceCalendarModal({
           day,
           dateStr,
           status: 'PRESENT' as const,
+          delivery: delivery || null,
           isToday: dateStr === todayStr,
         });
       }
@@ -153,7 +158,7 @@ export function CustomerAttendanceCalendarModal({
       onClose={onClose}
       title="Attendance & Delivery Calendar"
       description={`Viewing daily record for ${customer.name}`}
-      maxWidth="lg"
+      maxWidth="xl"
       footer={
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -245,10 +250,10 @@ export function CustomerAttendanceCalendarModal({
           </div>
 
           {/* Days Grid */}
-          <div className="grid grid-cols-7 gap-1 p-2 bg-slate-50/50">
+          <div className="grid grid-cols-7 gap-1.5 p-2.5 bg-slate-50/50">
             {/* Blank cells for offset */}
             {Array.from({ length: new Date(currentYear, currentMonth - 1, 1).getDay() }).map((_, idx) => (
-              <div key={`blank-${idx}`} className="h-14 sm:h-16 rounded-xl bg-transparent" />
+              <div key={`blank-${idx}`} className="h-16 sm:h-20 rounded-xl bg-transparent" />
             ))}
 
             {/* Actual Month Days */}
@@ -276,27 +281,36 @@ export function CustomerAttendanceCalendarModal({
                 cellStyle = 'bg-slate-50/40 border-slate-200/80 text-slate-400';
               }
 
+              const canMarkAbsent = item.status !== 'NOT_STARTED' && onSelectDateAbsent;
+
               return (
-                <div
+                <button
+                  type="button"
                   key={item.dateStr}
-                  className={`h-14 sm:h-16 p-1.5 rounded-xl border flex flex-col justify-between text-left transition-all relative ${cellStyle} ${
-                    item.isToday ? 'ring-2 ring-blue-500 ring-offset-1' : ''
+                  onClick={() => {
+                    if (canMarkAbsent) {
+                      onSelectDateAbsent(item.dateStr, item.delivery);
+                    }
+                  }}
+                  title={
+                    isAbsent && item.reason
+                      ? `Absent Reason: ${item.reason} (Click to edit)`
+                      : canMarkAbsent
+                      ? `Date: ${item.dateStr} - Click to mark absent`
+                      : undefined
+                  }
+                  disabled={!canMarkAbsent}
+                  className={`min-h-[64px] sm:min-h-[78px] p-1.5 sm:p-2 rounded-xl border flex flex-col justify-between text-left transition-all relative ${cellStyle} ${
+                    canMarkAbsent ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-[0.98]' : ''
                   }`}
                 >
                   <div className="flex items-center justify-between w-full">
-                    <span className={`text-xs sm:text-sm font-black ${
-                      item.isToday ? 'text-blue-600 underline decoration-2' : ''
-                    }`}>
+                    <span className="text-xs sm:text-sm font-black text-slate-800">
                       {item.day}
                     </span>
-                    {item.isToday && (
-                      <span className="text-[9px] font-black uppercase px-1 py-0.2 bg-blue-600 text-white rounded">
-                        Today
-                      </span>
-                    )}
                   </div>
 
-                  <div className="w-full flex items-center justify-center min-h-[20px]">
+                  <div className="w-full flex flex-col items-center justify-center gap-0.5 mt-1">
                     {statusLabel ? (
                       <span
                         className={`text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded-md w-full text-center truncate ${badgeStyle}`}
@@ -304,8 +318,18 @@ export function CustomerAttendanceCalendarModal({
                         {statusLabel}
                       </span>
                     ) : null}
+
+                    {/* Absent Reason Text if marked absent */}
+                    {isAbsent && item.reason && (
+                      <span
+                        className="text-[9px] sm:text-[10px] text-rose-700 font-semibold truncate max-w-full block text-center leading-tight px-0.5"
+                        title={item.reason}
+                      >
+                        {item.reason}
+                      </span>
+                    )}
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>

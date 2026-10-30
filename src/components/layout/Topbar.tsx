@@ -81,33 +81,18 @@ export function Topbar({
             <span>{formatDate(getTodayDateString())}</span>
           </div>
 
-          {/* Role Switcher Pill */}
-          <div className="flex items-center bg-gradient-to-r from-slate-50 to-slate-100 p-1 rounded-xl border border-slate-200/90 shadow-2xs">
-            <div className="hidden sm:flex items-center gap-1.5 pl-2 pr-1 text-xs font-semibold text-slate-600">
-              {isAdmin ? (
-                <ShieldAlert className="w-3.5 h-3.5 text-blue-600" />
-              ) : (
-                <Truck className="w-3.5 h-3.5 text-emerald-600" />
-              )}
-              <span className="text-[11px] uppercase tracking-wider font-bold">User:</span>
-            </div>
-
-            <div className="relative">
-              <select
-                value={currentUser.user_id}
-                onChange={(e) => switchUser(e.target.value)}
-                className="bg-white text-xs font-extrabold text-slate-800 rounded-lg py-1.5 pl-2.5 pr-7 border border-slate-200/70 shadow-xs focus:ring-2 focus:ring-blue-500 cursor-pointer appearance-none"
-              >
-                {availableUsers.map((u) => (
-                  <option key={u.user_id} value={u.user_id}>
-                    {u.role === 'ADMIN' ? '👑 Owner: ' : '🚴 Route: '}
-                    {u.name}
-                  </option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-slate-400">
-                <ChevronDown className="w-3 h-3" />
-              </div>
+          {/* Logged in User Badge */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-200/90 text-xs font-semibold text-slate-700">
+            {isAdmin ? (
+              <ShieldAlert className="w-4 h-4 text-purple-600" />
+            ) : (
+              <Truck className="w-4 h-4 text-emerald-600" />
+            )}
+            <div className="flex flex-col">
+              <span className="font-bold text-slate-900 leading-tight">{currentUser.name}</span>
+              <span className="text-[10px] text-slate-500 font-medium">
+                {isAdmin ? 'Administrator' : 'Delivery Staff'}
+              </span>
             </div>
           </div>
 

@@ -22,6 +22,8 @@ interface DeliveryActionModalProps {
   onClose: () => void;
   customer: Customer | null;
   delivery?: DailyDelivery | null;
+  initialTab?: 'PAYMENT' | 'ABSENT';
+  initialDate?: string;
   onConfirmAbsent: (reason: string, date: string, notes?: string) => void;
   onRecordPayment: (payment: {
     amount: number;
@@ -64,11 +66,13 @@ export function DeliveryActionModal({
   onClose,
   customer,
   delivery,
+  initialTab = 'PAYMENT',
+  initialDate,
   onConfirmAbsent,
   onRecordPayment,
   onRevertPresent,
 }: DeliveryActionModalProps) {
-  const [activeTab, setActiveTab] = useState<'PAYMENT' | 'ABSENT'>('PAYMENT');
+  const [activeTab, setActiveTab] = useState<'PAYMENT' | 'ABSENT'>(initialTab);
   const availableMonths = React.useMemo(() => getRecentBillingMonths(), []);
 
   // Default billing month: if before 15th of month, default to previous month; else current month
@@ -93,22 +97,24 @@ export function DeliveryActionModal({
   const [paymentNotes, setPaymentNotes] = useState('');
 
   // Absent form state (Manual reason & Date selector)
-  const [absentDate, setAbsentDate] = useState<string>(getTodayDateString());
+  const [absentDate, setAbsentDate] = useState<string>(initialDate || getTodayDateString());
   const [manualReason, setManualReason] = useState<string>(delivery?.absent_reason || '');
 
-  // Sync default amount when customer changes
+  // Sync default amount and tab when customer / isOpen changes
   React.useEffect(() => {
-    if (customer) {
-      setAmount(
-        customer.current_outstanding && customer.current_outstanding > 0
-          ? customer.current_outstanding
-          : customer.current_rate * 30
-      );
-      if (delivery?.absent_reason) {
-        setManualReason(delivery.absent_reason);
+    if (isOpen) {
+      if (initialTab) setActiveTab(initialTab);
+      if (initialDate) setAbsentDate(initialDate);
+      if (customer) {
+        setAmount(
+          customer.current_outstanding && customer.current_outstanding > 0
+            ? customer.current_outstanding
+            : customer.current_rate * 30
+        );
+        setManualReason(delivery?.absent_reason || '');
       }
     }
-  }, [customer, delivery]);
+  }, [customer, delivery, isOpen, initialTab, initialDate]);
 
   if (!customer) return null;
 

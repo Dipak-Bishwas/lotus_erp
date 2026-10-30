@@ -76,11 +76,14 @@ export function CustomerList({
   const [absentModalOpen, setAbsentModalOpen] = useState(false);
   const [absentTargetCustomer, setAbsentTargetCustomer] = useState<Customer | null>(null);
   const [absentTargetDelivery, setAbsentTargetDelivery] = useState<DailyDelivery | null>(null);
+  const [absentTargetDate, setAbsentTargetDate] = useState<string>(getTodayDateString());
 
   // Delivery Boy Action Modal State (Payment Receive & Absent popup)
   const [deliveryActionModalOpen, setDeliveryActionModalOpen] = useState(false);
   const [actionTargetCustomer, setActionTargetCustomer] = useState<Customer | null>(null);
   const [actionTargetDelivery, setActionTargetDelivery] = useState<DailyDelivery | null>(null);
+  const [actionInitialTab, setActionInitialTab] = useState<'PAYMENT' | 'ABSENT'>('PAYMENT');
+  const [actionInitialDate, setActionInitialDate] = useState<string>(getTodayDateString());
 
   useEffect(() => {
     loadData();
@@ -97,10 +100,20 @@ export function CustomerList({
     setTodayDeliveries(dels);
   };
 
-  const handleOpenDeliveryAction = (customer: Customer) => {
-    const del = todayDeliveries.find((d) => d.customer_id === customer.customer_id);
+  const handleOpenDeliveryAction = (
+    customer: Customer,
+    initialTab: 'PAYMENT' | 'ABSENT' = 'PAYMENT',
+    targetDate?: string,
+    delivery?: DailyDelivery | null
+  ) => {
+    const theDate = targetDate || getTodayDateString();
+    const del = delivery || StorageService.getDeliveries().find(
+      (d) => d.customer_id === customer.customer_id && d.delivery_date === theDate
+    );
     setActionTargetCustomer(customer);
     setActionTargetDelivery(del || null);
+    setActionInitialTab(initialTab);
+    setActionInitialDate(theDate);
     setDeliveryActionModalOpen(true);
   };
 
@@ -172,10 +185,14 @@ export function CustomerList({
     }
   };
 
-  const handleOpenAbsentModal = (customer: Customer) => {
-    const del = todayDeliveries.find((d) => d.customer_id === customer.customer_id);
+  const handleOpenAbsentModal = (customer: Customer, targetDate?: string, delivery?: DailyDelivery | null) => {
+    const theDate = targetDate || getTodayDateString();
+    const del = delivery || StorageService.getDeliveries().find(
+      (d) => d.customer_id === customer.customer_id && d.delivery_date === theDate
+    );
     setAbsentTargetCustomer(customer);
     setAbsentTargetDelivery(del || null);
+    setAbsentTargetDate(theDate);
     setAbsentModalOpen(true);
   };
 
@@ -183,12 +200,16 @@ export function CustomerList({
     if (absentTargetCustomer) {
       StorageService.recordCustomerDailyAbsence(
         absentTargetCustomer.customer_id,
-        getTodayDateString(),
+        absentTargetDate,
         reason,
         notes,
         currentUser
       );
-      showToast('Marked Absent', `${absentTargetCustomer.name} marked absent for today (₹0 bill)`, 'info');
+      showToast(
+        'Marked Absent',
+        `${absentTargetCustomer.name} marked absent for ${absentTargetDate} (₹0 bill)`,
+        'info'
+      );
       setAbsentModalOpen(false);
       loadData();
     }
@@ -845,6 +866,11 @@ export function CustomerList({
         isOpen={!!calendarTargetCustomer}
         onClose={() => setCalendarTargetCustomer(null)}
         customer={calendarTargetCustomer}
+        onSelectDateAbsent={(date, delivery) => {
+          if (calendarTargetCustomer) {
+            handleOpenDeliveryAction(calendarTargetCustomer, 'ABSENT', date, delivery);
+          }
+        }}
       />
 
       <CustomerDetailModal
@@ -866,7 +892,7 @@ export function CustomerList({
         onClose={() => setAbsentModalOpen(false)}
         customer={absentTargetCustomer}
         delivery={absentTargetDelivery}
-        date={getTodayDateString()}
+        date={absentTargetDate}
         onConfirmAbsent={handleConfirmAbsent}
       />
 
@@ -880,6 +906,8 @@ export function CustomerList({
         }}
         customer={actionTargetCustomer}
         delivery={actionTargetDelivery}
+        initialTab={actionInitialTab}
+        initialDate={actionInitialDate}
         onConfirmAbsent={handleDeliveryActionAbsent}
         onRecordPayment={handleDeliveryActionPayment}
         onRevertPresent={handleDeliveryActionRevertPresent}

@@ -207,68 +207,7 @@ export function LoginView() {
               </Button>
             </form>
 
-            {/* Quick Demo 1-Click Login Section */}
-            <div className="pt-4 border-t border-slate-100 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-                  Quick 1-Click Demo Login
-                </p>
-                <span className="text-[10px] text-slate-400 font-medium">Click to test</span>
-              </div>
 
-              <div className="space-y-2">
-                {deliveryBoys.map((boy) => (
-                  <button
-                    key={boy.user_id}
-                    type="button"
-                    onClick={() => handleQuickLogin(boy.user_id, boy.password || '1234')}
-                    className="w-full p-2.5 rounded-xl bg-slate-50 hover:bg-blue-50/80 border border-slate-200/80 text-left transition-all tap-highlight flex items-center justify-between group"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center group-hover:scale-105 transition-transform">
-                        <Truck className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <p className="font-extrabold text-slate-900 text-xs group-hover:text-blue-700 transition-colors">
-                          {boy.name}
-                        </p>
-                        <p className="text-[10px] text-slate-400 font-mono">
-                          ID: {boy.user_id} • Pass: {boy.password || '1234'}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold text-blue-600 bg-white px-2 py-0.5 rounded-md border border-blue-200 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                      Login
-                    </span>
-                  </button>
-                ))}
-
-                {adminUser && (
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin(adminUser.user_id, adminUser.password || 'admin@123')}
-                    className="w-full p-2.5 rounded-xl bg-slate-50 hover:bg-purple-50/80 border border-slate-200/80 text-left transition-all tap-highlight flex items-center justify-between group"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 font-bold text-xs flex items-center justify-center group-hover:scale-105 transition-transform">
-                        <ShieldCheck className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <p className="font-extrabold text-slate-900 text-xs group-hover:text-purple-700 transition-colors">
-                          {adminUser.name}
-                        </p>
-                        <p className="text-[10px] text-slate-400 font-mono">
-                          ID: {adminUser.user_id} • Pass: {adminUser.password || 'admin@123'}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold text-purple-600 bg-white px-2 py-0.5 rounded-md border border-purple-200 group-hover:bg-purple-600 group-hover:text-white transition-colors">
-                      Admin
-                    </span>
-                  </button>
-                )}
-              </div>
-            </div>
 
             {/* Footer Note */}
             <div className="text-center text-[11px] text-slate-400 pt-2 border-t border-slate-100 flex items-center justify-center gap-1.5 font-medium">
