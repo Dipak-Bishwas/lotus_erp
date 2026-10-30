@@ -504,127 +504,152 @@ export function CustomerList({
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider">
-                <th className="py-3.5 px-4">Client Profile</th>
-                <th className="py-3.5 px-4">Phone & Address</th>
+                <th className="py-3.5 px-4">Customer Name</th>
+                <th className="py-3.5 px-4">Phone</th>
+                <th className="py-3.5 px-4">Address</th>
                 <th className="py-3.5 px-4">Delivery Area</th>
                 <th className="py-3.5 px-4">Flower Variety</th>
+                <th className="py-3.5 px-4">Flower Type</th>
                 <th className="py-3.5 px-4">Daily Rate</th>
-                {isAdmin && <th className="py-3.5 px-4">Outstanding</th>}
                 <th className="py-3.5 px-4">Status</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
-              {filteredCustomers.map((c) => (
-                <tr
-                  key={c.customer_id}
-                  onClick={
-                    !isAdmin
-                      ? () => handleOpenDeliveryAction(c)
-                      : undefined
-                  }
-                  className={`hover:bg-blue-50/40 transition-colors ${
-                    !isAdmin ? 'cursor-pointer hover:bg-emerald-50/30' : ''
-                  }`}
-                >
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs">
-                        {c.name.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="font-extrabold text-slate-900">{c.name}</p>
-                        <p className="text-[10px] text-slate-400 font-mono">{c.customer_id}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <a
-                      href={`tel:${c.phone}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="font-bold text-blue-600 hover:underline block"
-                    >
-                      {formatPhone(c.phone)}
-                    </a>
-                    <p className="text-[11px] text-slate-400 truncate max-w-[200px]">
-                      {c.address}
-                    </p>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <p className="font-bold text-slate-800">{getAreaName(c.area_id)}</p>
-                    <p className="text-[11px] text-slate-400">
-                      Staff: {getDeliveryBoyName(c.assigned_delivery_boy_id)}
-                    </p>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="font-semibold text-slate-800">{c.flower_type}</span>
-                  </td>
-                  <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
-                    {formatCurrency(c.current_rate)}
-                  </td>
-                  {isAdmin && (
+              {filteredCustomers.map((c) => {
+                const isGarland = /mala|garland|veni|string/i.test(c.flower_type);
+                const varietyCategory = isGarland ? 'Haar (Garland)' : 'Loose Flower';
+
+                return (
+                  <tr
+                    key={c.customer_id}
+                    onClick={
+                      !isAdmin
+                        ? () => handleOpenDeliveryAction(c)
+                        : undefined
+                    }
+                    className={`hover:bg-blue-50/40 transition-colors ${
+                      !isAdmin ? 'cursor-pointer hover:bg-emerald-50/30' : ''
+                    }`}
+                  >
+                    {/* Customer Name */}
                     <td className="py-3.5 px-4">
-                      <MoneyDisplay
-                        amount={c.current_outstanding}
-                        highlightNegative
-                        size="sm"
-                      />
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs">
+                          {c.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-extrabold text-slate-900">{c.name}</p>
+                          <p className="text-[10px] text-slate-400 font-mono">{c.customer_id}</p>
+                        </div>
+                      </div>
                     </td>
-                  )}
-                  <td className="py-3.5 px-4">
-                    <CustomerStatusBadge status={c.status} />
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    <div className="inline-flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                      {!isAdmin && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => handleOpenDeliveryAction(c)}
-                          className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold"
-                          title="Collect Payment or Mark Absent"
-                        >
-                          <span>Action</span>
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setCalendarTargetCustomer(c)}
-                        className="p-1.5 text-slate-500 hover:text-blue-600"
-                        title="View Attendance Calendar"
+
+                    {/* Phone */}
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <a
+                        href={`tel:${c.phone}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="font-bold text-blue-600 hover:underline flex items-center gap-1"
                       >
-                        <Eye className="w-4 h-4 text-blue-600" />
-                      </Button>
-                      {isAdmin && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setSelectedCustomer(c);
-                              setIsFormOpen(true);
-                            }}
-                            className="p-1.5 text-slate-500 hover:text-blue-600"
-                            title="Edit Profile"
-                          >
-                            <FileEdit className="w-4 h-4" />
-                          </Button>
+                        <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>{formatPhone(c.phone)}</span>
+                      </a>
+                    </td>
+
+                    {/* Address */}
+                    <td className="py-3.5 px-4">
+                      <p className="text-[11px] text-slate-700 max-w-[220px] leading-snug">
+                        {c.address}
+                      </p>
+                    </td>
+
+                    {/* Delivery Area */}
+                    <td className="py-3.5 px-4">
+                      <p className="font-bold text-slate-800">{getAreaName(c.area_id)}</p>
+                      <p className="text-[10px] text-slate-400">
+                        Staff: {getDeliveryBoyName(c.assigned_delivery_boy_id)}
+                      </p>
+                    </td>
+
+                    {/* Flower Variety: Haar (Garland) or Loose Flower */}
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                          isGarland
+                            ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                            : 'bg-amber-50 text-amber-700 border border-amber-200'
+                        }`}
+                      >
+                        <Flower2 className="w-3 h-3" />
+                        <span>{varietyCategory}</span>
+                      </span>
+                    </td>
+
+                    {/* Flower Type */}
+                    <td className="py-3.5 px-4">
+                      <span className="font-semibold text-slate-900 text-xs block leading-tight">
+                        {c.flower_type}
+                      </span>
+                    </td>
+
+                    {/* Daily Rate */}
+                    <td className="py-3.5 px-4 font-mono font-black text-slate-900 whitespace-nowrap">
+                      {formatCurrency(c.current_rate)}
+                      <span className="text-[10px] text-slate-400 font-sans font-medium"> / day</span>
+                    </td>
+
+                    {/* Status */}
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <CustomerStatusBadge status={c.status} />
+                    </td>
+
+                    {/* Actions: Edit, Pay */}
+                    <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        {isAdmin ? (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedCustomer(c);
+                                setIsFormOpen(true);
+                              }}
+                              className="text-xs px-2.5 py-1 text-blue-600 hover:bg-blue-50 border-blue-200 font-bold flex items-center gap-1"
+                              title="Edit Customer Profile"
+                            >
+                              <FileEdit className="w-3.5 h-3.5" />
+                              <span>Edit</span>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => onRecordPayment(c)}
+                              className="text-xs px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 font-bold flex items-center gap-1"
+                              title="Record Payment"
+                            >
+                              <CreditCard className="w-3.5 h-3.5" />
+                              <span>Pay</span>
+                            </Button>
+                          </>
+                        ) : (
                           <Button
                             size="sm"
                             variant="secondary"
-                            onClick={() => onRecordPayment(c)}
-                            className="text-xs px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold"
-                            title="Record Payment"
+                            onClick={() => handleOpenDeliveryAction(c)}
+                            className="text-xs px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold flex items-center gap-1"
+                            title="Collect Payment"
                           >
-                            Pay
+                            <CreditCard className="w-3.5 h-3.5" />
+                            <span>Pay</span>
                           </Button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
