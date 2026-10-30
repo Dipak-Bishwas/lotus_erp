@@ -48,6 +48,9 @@ export function PaymentManagementView({
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
 
+  // Multi-month selection for 2-3 months backlog payment
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
+
   // Reversal dialog
   const [isReverseOpen, setIsReverseOpen] = useState(false);
   const [reversePaymentId, setReversePaymentId] = useState<string>('');
@@ -94,11 +97,42 @@ export function PaymentManagementView({
     setIsRecordOpen(true);
   };
 
+  const AVAILABLE_BILLING_MONTHS = [
+    { id: '2026-10', label: 'October 2026' },
+    { id: '2026-09', label: 'September 2026' },
+    { id: '2026-08', label: 'August 2026' },
+    { id: '2026-07', label: 'July 2026' },
+  ];
+
   const handleCustomerChange = (newCustId: string) => {
     setCustomerId(newCustId);
+    setSelectedMonths([]);
     const c = getCustomer(newCustId);
     if (c) {
       setAmount(c.current_outstanding);
+    }
+  };
+
+  const handleToggleMonth = (monthId: string) => {
+    const cust = getCustomer(customerId);
+    const monthlyRate = cust ? (cust.current_rate || 10) * 30 : 300;
+
+    const newMonths = selectedMonths.includes(monthId)
+      ? selectedMonths.filter((m) => m !== monthId)
+      : [...selectedMonths, monthId];
+
+    setSelectedMonths(newMonths);
+
+    if (newMonths.length > 0) {
+      setAmount(newMonths.length * monthlyRate);
+      const monthNames = newMonths
+        .map((m) => AVAILABLE_BILLING_MONTHS.find((b) => b.id === m)?.label)
+        .filter(Boolean)
+        .join(', ');
+      setNotes(`Payment for: ${monthNames}`);
+    } else if (cust) {
+      setAmount(cust.current_outstanding);
+      setNotes('');
     }
   };
 
@@ -441,6 +475,41 @@ export function PaymentManagementView({
               </option>
             ))}
           </Select>
+
+          {/* Month Backlog Selection (e.g. 1 month, 2-3 months at once) */}
+          <div className="p-3 bg-slate-50/90 rounded-2xl border border-slate-200/80 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Select Months Paid (1 or Multiple Months)
+              </label>
+              <span className="text-[11px] text-blue-600 font-bold">
+                {selectedMonths.length > 0 ? `${selectedMonths.length} Month(s) selected` : 'Or enter custom'}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Customer paying for past 2-3 months together? Click the months to auto-calculate:
+            </p>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {AVAILABLE_BILLING_MONTHS.map((m) => {
+                const isSelected = selectedMonths.includes(m.id);
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => handleToggleMonth(m.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border tap-highlight ${
+                      isSelected
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {isSelected ? '✓ ' : '+ '}
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           {/* Quick preset amount buttons */}
           <div>
